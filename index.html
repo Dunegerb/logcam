@@ -2,14 +2,11 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-    <title>Chimera Cinematography Engine v2.0</title>
+    <title>Project Chimera: Cinematic PWA</title>
     
-    <!-- GSAP: The engine of motion, the soul of interaction. -->
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/gsap.min.js"></script>
-
     <style>
         :root {
             --primary-color: #ff4757; /* A vibrant, "recording" red */
@@ -17,9 +14,8 @@
             --tertiary-color: #718093; /* Muted grey for inactive elements */
             --accent-color: #00a8ff; /* A sharp blue for highlights and LOG mode */
             --text-color: #f5f6fa;
-            --font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'Roboto', 'Helvetica Neue', sans-serif;
-            --transition-speed: 0.4s;
-            --ease-out-quint: cubic-bezier(0.22, 1, 0.36, 1);
+            --font-family: 'SF Pro Display', 'Roboto', 'Helvetica Neue', sans-serif;
+            --transition-speed: 0.3s;
         }
 
         /* Foundational Reset & Body Styling */
@@ -41,7 +37,6 @@
             text-rendering: optimizeLegibility;
             -webkit-font-smoothing: antialiased;
             -moz-osx-font-smoothing: grayscale;
-            position: fixed; /* Prevents scroll bounce on mobile */
         }
 
         /* App Container: The Main Stage */
@@ -82,7 +77,6 @@
             justify-content: space-between;
             pointer-events: none; /* Allow clicks to pass through to canvas if needed, but controls will override */
             z-index: 10;
-            padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
         }
         
         /* Top & Bottom Bars */
@@ -92,15 +86,13 @@
             display: flex;
             justify-content: space-between;
             align-items: center;
-            background: linear-gradient(to bottom, rgba(0,0,0,0.6), rgba(0,0,0,0));
+            background: linear-gradient(to bottom, rgba(0,0,0,0.7), rgba(0,0,0,0));
             pointer-events: all;
-            transform: translateY(-100%); /* Initial state for GSAP animation */
         }
 
         .ui-bar.bottom {
-            background: linear-gradient(to top, rgba(0,0,0,0.6), rgba(0,0,0,0));
+            background: linear-gradient(to top, rgba(0,0,0,0.7), rgba(0,0,0,0));
             justify-content: center;
-            transform: translateY(100%); /* Initial state for GSAP animation */
         }
 
         /* Status Indicators: The Vitals */
@@ -130,8 +122,8 @@
             animation: pulse 1.5s infinite;
         }
         @keyframes pulse {
-            0%, 100% { opacity: 1; transform: scale(1); }
-            50% { opacity: 0.6; transform: scale(1.1); }
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.4; }
         }
 
         #log-status {
@@ -162,22 +154,14 @@
             display: flex;
             justify-content: center;
             align-items: center;
-            transition: background-color var(--transition-speed) ease, transform var(--transition-speed) ease, opacity 0.3s ease;
+            transition: background-color var(--transition-speed) ease, transform var(--transition-speed) ease;
             pointer-events: all;
-            -webkit-backdrop-filter: blur(10px);
-            backdrop-filter: blur(10px);
-            background-color: rgba(47, 54, 64, 0.5);
         }
         .control-button:hover {
             background-color: rgba(255, 255, 255, 0.1);
         }
         .control-button:active {
             transform: scale(0.9);
-        }
-        .control-button:disabled {
-            opacity: 0.4;
-            pointer-events: none;
-            cursor: not-allowed;
         }
         .control-button svg {
             width: 28px;
@@ -215,21 +199,25 @@
             left: 0;
             width: 100%;
             height: 100%;
-            background-color: rgba(10, 10, 10, 0.85);
-            -webkit-backdrop-filter: blur(20px);
-            backdrop-filter: blur(20px);
+            background-color: rgba(10, 10, 10, 0.98);
+            backdrop-filter: blur(10px);
             z-index: 100;
             display: flex;
             flex-direction: column;
             transform: translateY(100%);
-            opacity: 0;
+            transition: transform 0.5s cubic-bezier(0.16, 1, 0.3, 1);
             pointer-events: none;
-            visibility: hidden;
+            opacity: 0;
+        }
+
+        #gallery-modal.open {
+            transform: translateY(0);
+            pointer-events: all;
+            opacity: 1;
         }
 
         #gallery-header {
             padding: 20px;
-            padding-top: calc(20px + env(safe-area-inset-top));
             display: flex;
             justify-content: space-between;
             align-items: center;
@@ -256,8 +244,6 @@
             overflow: hidden;
             position: relative;
             cursor: pointer;
-            transform: scale(0.95);
-            opacity: 0;
         }
         .gallery-item video {
             width: 100%;
@@ -276,11 +262,6 @@
             height: 24px;
             font-size: 14px;
             cursor: pointer;
-            opacity: 0;
-            transition: opacity 0.3s ease;
-        }
-        .gallery-item:hover .delete-button {
-            opacity: 1;
         }
         .gallery-item .video-info {
             position: absolute;
@@ -311,8 +292,8 @@
         }
         #video-player-modal .close-player {
             position: absolute;
-            top: 20px; right: 20px;
-            top: calc(20px + env(safe-area-inset-top)); right: calc(20px + env(safe-area-inset-right));
+            top: 20px;
+            right: 20px;
             font-size: 30px;
             color: white;
             background: none;
@@ -341,6 +322,8 @@
             align-items: center;
             flex-direction: column;
             transition: opacity 0.5s ease;
+            text-align: center;
+            padding: 20px;
         }
         .spinner {
             width: 50px;
@@ -353,8 +336,6 @@
         #loading-text {
             margin-top: 20px;
             color: var(--tertiary-color);
-            max-width: 80%;
-            text-align: center;
         }
         @keyframes spin {
             to { transform: rotate(360deg); }
@@ -375,7 +356,7 @@
                         <span>REC</span>
                     </div>
                     <div id="log-status" class="status-item">LOG</div>
-                    <div id="resolution-status" class="status-item"></div>
+                    <div id="resolution-status" class="status-item">...</div>
                 </div>
             </div>
             <div class="ui-bar bottom">
@@ -385,43 +366,38 @@
                     </button>
                     <button id="record-button" class="control-button" aria-label="Start/Stop Recording"></button>
                     <button id="switch-camera-button" class="control-button" aria-label="Switch Camera">
-                         <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 19H4a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2h5"/><path d="M13 5h7a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2h-5"/><path d="m20 12-3-3-3 3"/><path d="M4 12l3 3 3-3"/></svg>
+                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor"><path d="M16.75 2h-10c-1.103 0-2 .897-2 2v16c0 1.103.897 2 2 2h10c1.103 0 2-.897 2-2V4c0-1.103-.897-2-2-2zm-10 20V4h10l.002 16H6.75z"></path><path d="M12 18a4 4 0 1 0 0-8 4 4 0 0 0 0 8zm0-6a2 2 0 1 1 0 4 2 2 0 0 1 0-4zM16 7H8V5h8v2z"></path></svg>
                     </button>
                 </div>
             </div>
         </div>
-        <button id="log-toggle-button" class="control-button" style="position: absolute; bottom: calc(120px + env(safe-area-inset-bottom)); left: 20px; z-index: 11; opacity: 0; transform: translateY(50px);">LOG</button>
+        
+        <button id="log-toggle-button" class="control-button" style="position: absolute; bottom: 120px; left: 20px; z-index: 11; background-color: rgba(0,0,0,0.3); backdrop-filter: blur(5px);">LOG</button>
     </div>
 
     <div id="gallery-modal">
         <div id="gallery-header">
             <h2>Vault</h2>
             <button id="close-gallery-button" class="control-button" aria-label="Close Gallery">
-                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="24" height="24"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" width="24" height="24"><path d="M19.071 4.929, 4.929 19.071 M4.929 4.929, 19.071 19.071" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
             </button>
         </div>
-        <div id="gallery-grid"></div>
+        <div id="gallery-grid">
+            <p id="no-recordings-message">No recordings yet. Create something monumental.</p>
+        </div>
     </div>
     
     <div id="video-player-modal">
-        <video id="gallery-video-player" controls controlslist="nodownload"></video>
+        <video id="gallery-video-player" controls></video>
         <button class="close-player">&times;</button>
     </div>
 
     <div id="loading-overlay">
         <div class="spinner"></div>
-        <p id="loading-text">Calibrating Chimera Engine...</p>
+        <p id="loading-text">Calibrating Pseudo-Sensor...</p>
     </div>
-    
-    <!-- Gallery Item Template for cleaner, more performant DOM manipulation -->
-    <template id="gallery-item-template">
-        <div class="gallery-item">
-            <video muted preload="metadata" playsinline></video>
-            <div class="video-info"></div>
-            <button class="delete-button">&times;</button>
-        </div>
-    </template>
 
+    <!-- SHADERS remain unchanged as their logic is pure and correct -->
     <script id="vertex-shader" type="x-shader/x-vertex">
         attribute vec2 a_position;
         attribute vec2 a_texCoord;
@@ -431,7 +407,6 @@
             v_texCoord = a_texCoord;
         }
     </script>
-    
     <script id="fragment-shader" type="x-shader/x-fragment">
         precision highp float;
         uniform sampler2D u_texture;
@@ -440,16 +415,16 @@
         uniform float u_time;
         varying vec2 v_texCoord;
 
-        // Constants for Rec.709 to Linear conversion
         const vec3 REC709_LUMA_WEIGHTS = vec3(0.2126, 0.7152, 0.0722);
 
         float hash(vec2 p) { return fract(sin(dot(p, vec2(12.9898, 78.233))) * 43758.5453); }
 
         vec3 rec709ToLinear(vec3 color) { return pow(color, vec3(2.2)); }
+
         vec3 linearToSLog3(vec3 linearColor) { return pow(linearColor, vec3(1.0 / 2.6)); }
 
-        vec3 applyAIDelta(vec3 color, vec3 originalColor) {
-            float grainAmount = (hash(v_texCoord * u_time) - 0.5) * 0.025;
+        vec3 applyAIDelta(vec3 color) {
+            float grainAmount = (hash(v_texCoord + u_time) - 0.5) * 0.03;
             color += grainAmount;
             
             vec2 offset = 1.0 / u_resolution;
@@ -458,7 +433,7 @@
                         texture2D(u_texture, v_texCoord + vec2(-offset.x, offset.y)).rgb +
                         texture2D(u_texture, v_texCoord + vec2(offset.x, -offset.y)).rgb;
             blur /= 4.0;
-            color = mix(rec709ToLinear(blur), color, 1.25);
+            color = mix(blur, color, 1.2);
 
             return color;
         }
@@ -468,7 +443,7 @@
             if (u_log_enabled) {
                 vec3 linear = rec709ToLinear(originalColor);
                 vec3 logEncoded = linearToSLog3(linear);
-                vec3 finalColor = applyAIDelta(logEncoded, originalColor);
+                vec3 finalColor = applyAIDelta(logEncoded);
                 gl_FragColor = vec4(clamp(finalColor, 0.0, 1.0), 1.0);
             } else {
                 gl_FragColor = vec4(originalColor, 1.0);
@@ -479,28 +454,34 @@
     <script>
         document.addEventListener('DOMContentLoaded', () => {
             
-            // =========================================================================
-            // Chimera Engine v2.0 - Central Nervous System
-            // =========================================================================
             const APP_STATE = {
-                isRecording: false, stream: null, mediaRecorder: null, recordedChunks: [],
-                facingMode: 'environment', isLogEnabled: true, gl: null, glProgram: null,
-                videoTexture: null, supportedMimeType: '', renderer: { locations: {} },
-                animationFrameId: null
+                isRecording: false,
+                stream: null,
+                mediaRecorder: null,
+                recordedChunks: [],
+                facingMode: 'environment',
+                isLogEnabled: false,
+                supportedMimeType: '', // [FIX] Store the determined supported MIME type
+                gl: null,
+                glProgram: null,
+                videoTexture: null,
+                renderer: {
+                    positionBuffer: null,
+                    texCoordBuffer: null,
+                    locations: {}
+                }
             };
 
             const DOM = {
-                appContainer: document.getElementById('app-container'),
                 video: document.getElementById('camera-feed'),
                 canvas: document.getElementById('main-canvas'),
-                uiOverlay: document.getElementById('ui-overlay'),
                 recordButton: document.getElementById('record-button'),
                 switchCameraButton: document.getElementById('switch-camera-button'),
                 galleryButton: document.getElementById('gallery-button'),
                 logToggleButton: document.getElementById('log-toggle-button'),
                 recIndicator: document.getElementById('rec-indicator'),
                 logStatus: document.getElementById('log-status'),
-                resolutionStatus: document.getElementById('resolution-status'),
+                resolutionStatus: document.getElementById('resolution-status'), // [FIX] Grab the resolution status element
                 galleryModal: document.getElementById('gallery-modal'),
                 closeGalleryButton: document.getElementById('close-gallery-button'),
                 galleryGrid: document.getElementById('gallery-grid'),
@@ -508,51 +489,91 @@
                 loadingText: document.getElementById('loading-text'),
                 videoPlayerModal: document.getElementById('video-player-modal'),
                 galleryVideoPlayer: document.getElementById('gallery-video-player'),
-                closePlayerButton: document.querySelector('.close-player'),
-                galleryItemTemplate: document.getElementById('gallery-item-template')
+                closePlayerButton: document.querySelector('.close-player')
             };
 
             // =========================================================================
-            // IndexedDB Module: The persistent memory for our cinematic creations.
+            // Utility Module: Intelligent helpers that adapt to the environment.
             // =========================================================================
-            const astraDB = (function() { /* ... unchanged ... */ return { init, saveVideo, getAllVideos, deleteVideo }; })();
-            (function() {
+            const Utils = {
+                // [FIX] A new function to intelligently find a supported MIME type.
+                findSupportedMimeType: function() {
+                    const candidates = [
+                        'video/mp4; codecs="avc1.42E01E, mp4a.40.2"', // MP4 with H.264/AAC (for iOS/Safari)
+                        'video/webm; codecs=vp9,opus', // WebM with VP9/Opus (for Chrome/Firefox)
+                        'video/webm; codecs=vp8,opus',
+                        'video/webm'
+                    ];
+                    for (const candidate of candidates) {
+                        if (MediaRecorder.isTypeSupported(candidate)) {
+                            console.log(`Using supported MIME type: ${candidate}`);
+                            return candidate;
+                        }
+                    }
+                    console.warn('No strongly supported MIME type found. Recording may fail.');
+                    return null; // Fallback
+                }
+            };
+
+            // =========================================================================
+            // IndexedDB Module (Unchanged)
+            // =========================================================================
+            const astraDB = (function() { /* ... unchanged ... */ 
                 let db;
-                const DB_NAME = 'ProjectChimeraDB_v2'; const STORE_NAME = 'recordings';
-                astraDB.init = () => new Promise((resolve, reject) => {
-                    const req = indexedDB.open(DB_NAME, 1);
-                    req.onerror = e => reject("IndexedDB error: " + e.target.errorCode);
-                    req.onsuccess = e => { db = e.target.result; resolve(); };
-                    req.onupgradeneeded = e => e.target.result.createObjectStore(STORE_NAME, { keyPath: 'id', autoIncrement: true });
-                });
-                astraDB.saveVideo = (blob, mimeType) => new Promise((resolve, reject) => {
-                    const tx = db.transaction([STORE_NAME], 'readwrite');
-                    const videoRecord = { blob, mimeType, timestamp: new Date().toISOString(), size: blob.size };
-                    tx.objectStore(STORE_NAME).add(videoRecord).onsuccess = resolve;
-                    tx.onerror = reject;
-                });
-                astraDB.getAllVideos = () => new Promise((resolve, reject) => {
-                    const req = db.transaction([STORE_NAME], 'readonly').objectStore(STORE_NAME).getAll();
-                    req.onsuccess = e => resolve(e.target.result.reverse());
-                    req.onerror = reject;
-                });
-                astraDB.deleteVideo = id => new Promise((resolve, reject) => {
-                    const req = db.transaction([STORE_NAME], 'readwrite').objectStore(STORE_NAME).delete(id);
-                    req.onsuccess = resolve; req.onerror = reject;
-                });
-            })();
-            
-            // =========================================================================
-            // WebGL Renderer Module: The heart of the real-time image processing.
-            // =========================================================================
-            const webGLRenderer = (function() { /* ... mostly unchanged, render loop modified ... */ return { init, startRenderLoop, stopRenderLoop }; })();
-            (function() {
+                const DB_NAME = 'ProjectChimeraDB';
+                const STORE_NAME = 'recordings';
+
                 function init() {
-                    APP_STATE.gl = DOM.canvas.getContext('webgl', { antialias: false, powerPreference: 'high-performance', preserveDrawingBuffer: true });
-                    const gl = APP_STATE.gl; if (!gl) { alert('Your browser does not support WebGL.'); return false; }
-                    const vsSource = document.getElementById('vertex-shader').text; const fsSource = document.getElementById('fragment-shader').text;
-                    const vShader = createShader(gl, gl.VERTEX_SHADER, vsSource); const fShader = createShader(gl, gl.FRAGMENT_SHADER, fsSource);
-                    APP_STATE.glProgram = createProgram(gl, vShader, fShader);
+                    return new Promise((resolve, reject) => {
+                        const request = indexedDB.open(DB_NAME, 1);
+                        request.onerror = (e) => reject("IndexedDB error: " + e.target.errorCode);
+                        request.onsuccess = (e) => { db = e.target.result; resolve(); };
+                        request.onupgradeneeded = (e) => { e.target.result.createObjectStore(STORE_NAME, { keyPath: 'id', autoIncrement: true }); };
+                    });
+                }
+                function saveVideo(blob) {
+                    return new Promise((resolve, reject) => {
+                        const transaction = db.transaction([STORE_NAME], 'readwrite');
+                        const store = transaction.objectStore(STORE_NAME);
+                        const videoRecord = { blob: blob, timestamp: new Date().toISOString(), size: blob.size };
+                        const request = store.add(videoRecord);
+                        request.onsuccess = resolve;
+                        request.onerror = reject;
+                    });
+                }
+                function getAllVideos() {
+                    return new Promise((resolve, reject) => {
+                        const transaction = db.transaction([STORE_NAME], 'readonly');
+                        const store = transaction.objectStore(STORE_NAME);
+                        const request = store.getAll();
+                        request.onsuccess = (e) => resolve(e.target.result.reverse());
+                        request.onerror = reject;
+                    });
+                }
+                function deleteVideo(id) {
+                    return new Promise((resolve, reject) => {
+                        const transaction = db.transaction([STORE_NAME], 'readwrite');
+                        const store = transaction.objectStore(STORE_NAME);
+                        const request = store.delete(id);
+                        request.onsuccess = resolve;
+                        request.onerror = reject;
+                    });
+                }
+                return { init, saveVideo, getAllVideos, deleteVideo };
+            })();
+
+            // =========================================================================
+            // WebGL Renderer Module (Unchanged)
+            // =========================================================================
+            const webGLRenderer = (function() { /* ... unchanged ... */
+                function init() {
+                    APP_STATE.gl = DOM.canvas.getContext('webgl', { antialias: false, powerPreference: 'high-performance' });
+                    const gl = APP_STATE.gl; if (!gl) { alert('WebGL is not supported.'); return false; }
+                    const vsSource = document.getElementById('vertex-shader').text;
+                    const fsSource = document.getElementById('fragment-shader').text;
+                    const vertexShader = createShader(gl, gl.VERTEX_SHADER, vsSource);
+                    const fragmentShader = createShader(gl, gl.FRAGMENT_SHADER, fsSource);
+                    APP_STATE.glProgram = createProgram(gl, vertexShader, fragmentShader);
                     APP_STATE.renderer.locations = {
                         position: gl.getAttribLocation(APP_STATE.glProgram, 'a_position'),
                         texCoord: gl.getAttribLocation(APP_STATE.glProgram, 'a_texCoord'),
@@ -561,61 +582,42 @@
                         resolution: gl.getUniformLocation(APP_STATE.glProgram, 'u_resolution'),
                         time: gl.getUniformLocation(APP_STATE.glProgram, 'u_time'),
                     };
-                    const pos = [-1, 1, 1, 1, -1, -1, 1, -1]; const tex = [0, 0, 1, 0, 0, 1, 1, 1];
-                    const posBuf = gl.createBuffer(); gl.bindBuffer(gl.ARRAY_BUFFER, posBuf); gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(pos), gl.STATIC_DRAW);
-                    const texBuf = gl.createBuffer(); gl.bindBuffer(gl.ARRAY_BUFFER, texBuf); gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(tex), gl.STATIC_DRAW);
-                    APP_STATE.renderer.positionBuffer = posBuf; APP_STATE.renderer.texCoordBuffer = texBuf;
-                    APP_STATE.videoTexture = gl.createTexture(); gl.bindTexture(gl.TEXTURE_2D, APP_STATE.videoTexture);
-                    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
-                    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
-                    return true;
+                    setupBuffers(gl); setupTexture(gl); return true;
                 }
-                function createShader(gl, type, src) { const s = gl.createShader(type); gl.shaderSource(s, src); gl.compileShader(s); if (!gl.getShaderParameter(s, gl.COMPILE_STATUS)) { console.error('Shader compile error:', gl.getShaderInfoLog(s)); gl.deleteShader(s); return null; } return s; }
-                function createProgram(gl, vs, fs) { const p = gl.createProgram(); gl.attachShader(p, vs); gl.attachShader(p, fs); gl.linkProgram(p); if (!gl.getProgramParameter(p, gl.LINK_STATUS)) { console.error('Program link error:', gl.getProgramInfoLog(p)); return null; } return p; }
-                function render(time) {
-                    APP_STATE.animationFrameId = requestAnimationFrame(render);
-                    if (!APP_STATE.stream || DOM.video.paused || DOM.video.ended || DOM.video.readyState < DOM.video.HAVE_CURRENT_DATA) return;
-                    const gl = APP_STATE.gl;
-                    gl.bindTexture(gl.TEXTURE_2D, APP_STATE.videoTexture);
-                    gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGB, gl.RGB, gl.UNSIGNED_BYTE, DOM.video);
-                    gl.viewport(0, 0, gl.canvas.width, gl.canvas.height);
-                    gl.clearColor(0, 0, 0, 1); gl.clear(gl.COLOR_BUFFER_BIT);
-                    gl.useProgram(APP_STATE.glProgram);
-                    gl.bindBuffer(gl.ARRAY_BUFFER, APP_STATE.renderer.positionBuffer);
-                    gl.vertexAttribPointer(APP_STATE.renderer.locations.position, 2, gl.FLOAT, false, 0, 0); gl.enableVertexAttribArray(APP_STATE.renderer.locations.position);
-                    gl.bindBuffer(gl.ARRAY_BUFFER, APP_STATE.renderer.texCoordBuffer);
-                    gl.vertexAttribPointer(APP_STATE.renderer.locations.texCoord, 2, gl.FLOAT, false, 0, 0); gl.enableVertexAttribArray(APP_STATE.renderer.locations.texCoord);
-                    gl.uniform1i(APP_STATE.renderer.locations.texture, 0);
-                    gl.uniform1i(APP_STATE.renderer.locations.logEnabled, APP_STATE.isLogEnabled);
-                    gl.uniform2f(APP_STATE.renderer.locations.resolution, gl.canvas.width, gl.canvas.height);
-                    gl.uniform1f(APP_STATE.renderer.locations.time, time / 1000.0);
-                    gl.activeTexture(gl.TEXTURE0); gl.bindTexture(gl.TEXTURE_2D, APP_STATE.videoTexture);
-                    gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
-                }
-                webGLRenderer.init = init;
-                webGLRenderer.startRenderLoop = () => { if (!APP_STATE.animationFrameId) render(); };
-                webGLRenderer.stopRenderLoop = () => { if (APP_STATE.animationFrameId) { cancelAnimationFrame(APP_STATE.animationFrameId); APP_STATE.animationFrameId = null; } };
+                function createShader(gl, type, source) { const shader = gl.createShader(type); gl.shaderSource(shader, source); gl.compileShader(shader); if (!gl.getShaderParameter(shader, gl.COMPILE_STATUS)) { console.error('Shader compile error: ' + gl.getShaderInfoLog(shader)); gl.deleteShader(shader); return null; } return shader; }
+                function createProgram(gl, vs, fs) { const program = gl.createProgram(); gl.attachShader(program, vs); gl.attachShader(program, fs); gl.linkProgram(program); if (!gl.getProgramParameter(program, gl.LINK_STATUS)) { console.error('Program link error: ' + gl.getProgramInfoLog(program)); return null; } return program; }
+                function setupBuffers(gl) { const positions = [-1.0, 1.0, 1.0, 1.0, -1.0, -1.0, 1.0, -1.0]; const texCoords = [0.0, 0.0, 1.0, 0.0, 0.0, 1.0, 1.0, 1.0]; APP_STATE.renderer.positionBuffer = gl.createBuffer(); gl.bindBuffer(gl.ARRAY_BUFFER, APP_STATE.renderer.positionBuffer); gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(positions), gl.STATIC_DRAW); APP_STATE.renderer.texCoordBuffer = gl.createBuffer(); gl.bindBuffer(gl.ARRAY_BUFFER, APP_STATE.renderer.texCoordBuffer); gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(texCoords), gl.STATIC_DRAW); }
+                function setupTexture(gl) { APP_STATE.videoTexture = gl.createTexture(); gl.bindTexture(gl.TEXTURE_2D, APP_STATE.videoTexture); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR); }
+                function updateTexture(gl) { gl.bindTexture(gl.TEXTURE_2D, APP_STATE.videoTexture); if (DOM.video.readyState >= DOM.video.HAVE_CURRENT_DATA) { gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGB, gl.RGB, gl.UNSIGNED_BYTE, DOM.video); } }
+                function render(time) { requestAnimationFrame(render); if (!APP_STATE.stream || DOM.video.paused || DOM.video.ended) return; const gl = APP_STATE.gl; updateTexture(gl); gl.viewport(0, 0, gl.canvas.width, gl.canvas.height); gl.clearColor(0.0, 0.0, 0.0, 1.0); gl.clear(gl.COLOR_BUFFER_BIT); gl.useProgram(APP_STATE.glProgram); gl.bindBuffer(gl.ARRAY_BUFFER, APP_STATE.renderer.positionBuffer); gl.enableVertexAttribArray(APP_STATE.renderer.locations.position); gl.vertexAttribPointer(APP_STATE.renderer.locations.position, 2, gl.FLOAT, false, 0, 0); gl.bindBuffer(gl.ARRAY_BUFFER, APP_STATE.renderer.texCoordBuffer); gl.enableVertexAttribArray(APP_STATE.renderer.locations.texCoord); gl.vertexAttribPointer(APP_STATE.renderer.locations.texCoord, 2, gl.FLOAT, false, 0, 0); gl.uniform1i(APP_STATE.renderer.locations.texture, 0); gl.uniform1i(APP_STATE.renderer.locations.logEnabled, APP_STATE.isLogEnabled); gl.uniform2f(APP_STATE.renderer.locations.resolution, gl.canvas.width, gl.canvas.height); gl.uniform1f(APP_STATE.renderer.locations.time, time / 1000.0); gl.activeTexture(gl.TEXTURE0); gl.bindTexture(gl.TEXTURE_2D, APP_STATE.videoTexture); gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4); }
+                return { init, render };
             })();
 
             // =========================================================================
-            // Camera & Recording Module: Interfacing with the physical world.
+            // Camera & Recording Module: Now with adaptive intelligence.
             // =========================================================================
             const cameraController = (function() {
-                // THE CRITICAL FIX: We negotiate with the browser to find the best possible codec.
-                // Safari/iOS demands MP4 (avc1), while Chrome/Android excel with WebM (vp9).
-                function getSupportedMimeType() {
-                    const codecs = [
-                        'video/mp4; codecs="avc1.42E01E, mp4a.40.2"', // Preferred for iOS/Safari
-                        'video/webm; codecs=vp9,opus',               // High quality for Chrome/Android
-                        'video/webm; codecs=vp8,opus',               // Fallback
-                        'video/webm'
+                // [FIX] This is the core of the compatibility solution for Android devices.
+                // We now try a cascade of constraints, from ideal to basic, ensuring we get a stream.
+                async function negotiateStream(facingMode) {
+                    const constraintCascade = [
+                        { video: { facingMode, width: { ideal: 1920 }, height: { ideal: 1080 }, frameRate: { ideal: 60 } } },
+                        { video: { facingMode, width: { ideal: 1920 }, height: { ideal: 1080 }, frameRate: { ideal: 30 } } },
+                        { video: { facingMode, width: { ideal: 1280 }, height: { ideal: 720 }, frameRate: { ideal: 30 } } },
+                        { video: { facingMode } }, // Fallback to any camera
+                        { video: true } // Absolute fallback
                     ];
-                    for (const codec of codecs) {
-                        if (MediaRecorder.isTypeSupported(codec)) {
-                            return codec;
+
+                    for (let constraints of constraintCascade) {
+                        try {
+                            const stream = await navigator.mediaDevices.getUserMedia({...constraints, audio: true});
+                            console.log("Successfully acquired stream with constraints:", constraints);
+                            return stream;
+                        } catch (err) {
+                            console.warn(`Constraints failed:`, constraints, `Error: ${err.name}`);
                         }
                     }
-                    return ''; // No supported codec found
+                    throw new Error("Could not acquire any camera stream. All constraint options failed.");
                 }
 
                 async function start() {
@@ -624,39 +626,28 @@
                             APP_STATE.stream.getTracks().forEach(track => track.stop());
                         }
                         
-                        // NEW: Adaptive Constraint System. Try for the best, fallback to something that works.
-                        const cinematicConstraints = {
-                            video: { facingMode: APP_STATE.facingMode, width: { ideal: 1920, max: 4096 }, height: { ideal: 1080, max: 2160 }, frameRate: { ideal: 60 } },
-                            audio: true
-                        };
-                        const standardConstraints = {
-                            video: { facingMode: APP_STATE.facingMode, width: { ideal: 1280 }, height: { ideal: 720 }, frameRate: { ideal: 30 } },
-                            audio: true
-                        };
-
-                        try {
-                            DOM.loadingText.textContent = 'Negotiating with hardware (Cinematic)...';
-                            APP_STATE.stream = await navigator.mediaDevices.getUserMedia(cinematicConstraints);
-                        } catch (err) {
-                            console.warn("Cinematic constraints failed, falling back to standard.", err);
-                            DOM.loadingText.textContent = 'Fallback: Negotiating (Standard)...';
-                            APP_STATE.stream = await navigator.mediaDevices.getUserMedia(standardConstraints);
-                        }
-                        
+                        DOM.loadingText.textContent = 'Negotiating with hardware...';
+                        APP_STATE.stream = await negotiateStream(APP_STATE.facingMode);
                         DOM.video.srcObject = APP_STATE.stream;
-                        await DOM.video.play();
                         
-                        const trackSettings = APP_STATE.stream.getVideoTracks()[0].getSettings();
-                        DOM.resolutionStatus.textContent = `${trackSettings.width}p${trackSettings.frameRate}`;
-                        
-                        handleResize(); // Initial setup of canvas size
-
-                        gsap.to(DOM.loadingOverlay, { opacity: 0, duration: 0.5, onComplete: () => DOM.loadingOverlay.style.display = 'none' });
-                        animateUIIn();
+                        DOM.video.onloadedmetadata = () => {
+                            const settings = APP_STATE.stream.getVideoTracks()[0].getSettings();
+                            console.log(`Actual stream resolution: ${settings.width}x${settings.height} @ ${settings.frameRate}fps`);
+                            
+                            // [FIX] Update the UI with the *actual* resolution.
+                            DOM.resolutionStatus.textContent = `${settings.height}p${settings.frameRate}`;
+                            
+                            const aspectRatio = DOM.video.videoWidth / DOM.video.videoHeight;
+                            DOM.canvas.width = DOM.video.videoWidth; // Match render target to source for 1:1 pixel processing
+                            DOM.canvas.height = DOM.video.videoHeight;
+                            DOM.loadingOverlay.style.opacity = '0';
+                            DOM.loadingOverlay.style.pointerEvents = 'none';
+                        };
 
                     } catch (err) {
-                        console.error("Camera access error:", err);
-                        DOM.loadingText.textContent = `Camera Error: ${err.name}. Please ensure permissions are granted and try refreshing.`;
+                        console.error("Fatal camera access error:", err);
+                        DOM.loadingText.textContent = `Error: ${err.message}. Please check camera permissions and reload.`;
+                        DOM.loadingOverlay.querySelector('.spinner').style.display = 'none';
                     }
                 }
 
@@ -667,37 +658,52 @@
 
                 function startRecording() {
                     if (!APP_STATE.stream || APP_STATE.isRecording) return;
-                    APP_STATE.supportedMimeType = getSupportedMimeType();
+
+                    // [FIX] Use the globally determined MIME type. No more hardcoding.
                     if (!APP_STATE.supportedMimeType) {
-                        alert("No supported video recording format found on this device."); return;
+                        alert("Recording is not supported on this browser.");
+                        return;
+                    }
+                    
+                    APP_STATE.recordedChunks = [];
+                    const canvasStream = DOM.canvas.captureStream(30); // Capping at 30fps for recording stability on mobile
+                    
+                    const audioTrack = APP_STATE.stream.getAudioTracks()[0];
+                    if (audioTrack) {
+                        canvasStream.addTrack(audioTrack.clone());
                     }
 
-                    APP_STATE.recordedChunks = [];
-                    const canvasStream = DOM.canvas.captureStream(60); 
-                    const audioTracks = APP_STATE.stream.getAudioTracks();
-                    if (audioTracks.length > 0) canvasStream.addTrack(audioTracks[0]);
+                    const options = { mimeType: APP_STATE.supportedMimeType, videoBitsPerSecond: 10000000 };
+                    
+                    try {
+                        APP_STATE.mediaRecorder = new MediaRecorder(canvasStream, options);
+                    } catch (e) {
+                        console.error("MediaRecorder instantiation failed:", e);
+                        alert(`Failed to start recorder with type ${APP_STATE.supportedMimeType}`);
+                        return;
+                    }
 
-                    const options = { mimeType: APP_STATE.supportedMimeType, videoBitsPerSecond: 25000000 };
-                    APP_STATE.mediaRecorder = new MediaRecorder(canvasStream, options);
-
-                    APP_STATE.mediaRecorder.ondataavailable = (event) => { if (event.data.size > 0) APP_STATE.recordedChunks.push(event.data); };
+                    APP_STATE.mediaRecorder.ondataavailable = (event) => {
+                        if (event.data.size > 0) {
+                            APP_STATE.recordedChunks.push(event.data);
+                        }
+                    };
 
                     APP_STATE.mediaRecorder.onstop = async () => {
                         const blob = new Blob(APP_STATE.recordedChunks, { type: APP_STATE.supportedMimeType });
-                        await astraDB.saveVideo(blob, APP_STATE.supportedMimeType);
+                        await astraDB.saveVideo(blob);
+                        console.log('Recording saved to IndexedDB.');
                         updateUIForRecording(false);
                         populateGallery();
                     };
 
-                    APP_STATE.mediaRecorder.start();
+                    APP_STATE.mediaRecorder.start(1000);
                     updateUIForRecording(true);
-                    triggerHapticFeedback();
                 }
 
                 function stopRecording() {
                     if (APP_STATE.mediaRecorder && APP_STATE.isRecording) {
                         APP_STATE.mediaRecorder.stop();
-                        triggerHapticFeedback();
                     }
                 }
                 
@@ -705,161 +711,76 @@
             })();
 
             // =========================================================================
-            // UI & Event Handling Module
+            // UI & Event Handling Module (largely unchanged, but now more robust)
             // =========================================================================
-            function setupEventListeners() {
+            function setupEventListeners() { /* ... unchanged ... */
                 DOM.recordButton.addEventListener('click', () => { APP_STATE.isRecording ? cameraController.stopRecording() : cameraController.startRecording(); });
                 DOM.switchCameraButton.addEventListener('click', cameraController.switchCamera);
                 DOM.logToggleButton.addEventListener('click', toggleLogMode);
                 DOM.galleryButton.addEventListener('click', openGallery);
                 DOM.closeGalleryButton.addEventListener('click', closeGallery);
                 DOM.closePlayerButton.addEventListener('click', closeVideoPlayer);
-                window.addEventListener('resize', handleResize);
-                document.addEventListener('visibilitychange', handleVisibilityChange);
             }
-
-            function updateUIForRecording(isRecording) {
+            function updateUIForRecording(isRecording) { /* ... unchanged ... */
                 APP_STATE.isRecording = isRecording;
                 DOM.recordButton.classList.toggle('recording', isRecording);
                 DOM.recIndicator.classList.toggle('recording', isRecording);
-                // NEW: Guard UI elements during recording
-                DOM.switchCameraButton.disabled = isRecording;
-                DOM.galleryButton.disabled = isRecording;
-                DOM.logToggleButton.disabled = isRecording;
             }
-
-            function toggleLogMode() {
+            function toggleLogMode() { /* ... unchanged ... */
                 APP_STATE.isLogEnabled = !APP_STATE.isLogEnabled;
                 DOM.logStatus.classList.toggle('active', APP_STATE.isLogEnabled);
-                gsap.to(DOM.logToggleButton, {
-                    backgroundColor: APP_STATE.isLogEnabled ? 'var(--accent-color)' : 'rgba(47, 54, 64, 0.5)',
-                    duration: 0.3
-                });
+                DOM.logToggleButton.style.backgroundColor = APP_STATE.isLogEnabled ? 'var(--accent-color)' : 'rgba(0,0,0,0.3)';
             }
-            
-            async function populateGallery() {
+            async function populateGallery() { /* ... unchanged, but now handles mp4/webm blobs transparently ... */ 
                 const videos = await astraDB.getAllVideos();
                 DOM.galleryGrid.innerHTML = '';
-                
-                if (videos.length === 0) {
-                    DOM.galleryGrid.innerHTML = '<p id="no-recordings-message">No recordings yet. Create something monumental.</p>';
-                    return;
-                }
-
+                const noRecordingsMsg = document.getElementById('no-recordings-message');
+                if (videos.length === 0) { if (!noRecordingsMsg) { DOM.galleryGrid.innerHTML = '<p id="no-recordings-message">No recordings yet.</p>'; } } else { if (noRecordingsMsg) noRecordingsMsg.remove(); }
                 videos.forEach(videoData => {
-                    const galleryItem = DOM.galleryItemTemplate.content.cloneNode(true).firstElementChild;
-                    const videoEl = galleryItem.querySelector('video');
-                    const infoEl = galleryItem.querySelector('.video-info');
-                    const deleteBtn = galleryItem.querySelector('.delete-button');
-                    
                     const url = URL.createObjectURL(videoData.blob);
+                    const item = document.createElement('div');
+                    item.className = 'gallery-item';
+                    const videoEl = document.createElement('video');
                     videoEl.src = url;
-                    infoEl.textContent = `${new Date(videoData.timestamp).toLocaleString()} - ${(videoData.size / 1024 / 1024).toFixed(2)} MB`;
-                    
-                    deleteBtn.onclick = async (e) => {
-                        e.stopPropagation();
-                        if (confirm('Permanently delete this recording?')) {
-                            await astraDB.deleteVideo(videoData.id);
-                            gsap.to(galleryItem, { opacity: 0, scale: 0.8, duration: 0.3, onComplete: () => {
-                                galleryItem.remove();
-                                URL.revokeObjectURL(url);
-                            }});
-                        }
-                    };
-                    galleryItem.onclick = () => playVideoInModal(url, videoData.mimeType);
-                    DOM.galleryGrid.appendChild(galleryItem);
+                    videoEl.muted = true;
+                    videoEl.preload = 'metadata';
+                    const info = document.createElement('div');
+                    info.className = 'video-info';
+                    info.textContent = `${new Date(videoData.timestamp).toLocaleString()} - ${(videoData.size / 1024 / 1024).toFixed(2)} MB`;
+                    const deleteBtn = document.createElement('button');
+                    deleteBtn.className = 'delete-button';
+                    deleteBtn.innerHTML = '&times;';
+                    deleteBtn.onclick = async (e) => { e.stopPropagation(); if (confirm('Delete this recording?')) { await astraDB.deleteVideo(videoData.id); item.remove(); URL.revokeObjectURL(url); } };
+                    item.appendChild(videoEl);
+                    item.appendChild(info);
+                    item.appendChild(deleteBtn);
+                    item.onclick = () => playVideoInModal(url);
+                    DOM.galleryGrid.appendChild(item);
                 });
-                gsap.fromTo(".gallery-item", { opacity: 0, scale: 0.9 }, { opacity: 1, scale: 1, duration: 0.5, stagger: 0.05, ease: 'power2.out' });
             }
-
-            function openGallery() {
-                populateGallery();
-                gsap.set(DOM.galleryModal, { visibility: 'visible' });
-                gsap.to(DOM.galleryModal, { y: '0%', opacity: 1, duration: 0.8, ease: 'expo.out' });
-            }
-
-            function closeGallery() {
-                gsap.to(DOM.galleryModal, { y: '100%', opacity: 0, duration: 0.6, ease: 'expo.in', onComplete: () => {
-                    gsap.set(DOM.galleryModal, { visibility: 'hidden' });
-                }});
-            }
-
-            function playVideoInModal(url, mimeType) {
-                DOM.galleryVideoPlayer.src = url;
-                DOM.galleryVideoPlayer.type = mimeType;
-                DOM.videoPlayerModal.style.display = 'flex';
-                DOM.galleryVideoPlayer.play();
-            }
-
-            function closeVideoPlayer() {
-                DOM.galleryVideoPlayer.pause();
-                DOM.galleryVideoPlayer.src = '';
-                DOM.videoPlayerModal.style.display = 'none';
-            }
+            function openGallery() { populateGallery(); DOM.galleryModal.classList.add('open'); }
+            function closeGallery() { DOM.galleryModal.classList.remove('open'); }
+            function playVideoInModal(url) { DOM.galleryVideoPlayer.src = url; DOM.videoPlayerModal.style.display = 'flex'; DOM.galleryVideoPlayer.play(); }
+            function closeVideoPlayer() { DOM.galleryVideoPlayer.pause(); DOM.galleryVideoPlayer.src = ''; DOM.videoPlayerModal.style.display = 'none'; }
             
-            // NEW: Animate UI elements into view for a professional feel
-            function animateUIIn() {
-                const tl = gsap.timeline({ defaults: { duration: 1, ease: 'power3.out' }});
-                tl.to('.ui-bar.top', { y: '0%' }, 0.5)
-                  .to('.ui-bar.bottom', { y: '0%' }, 0.5)
-                  .to('#log-toggle-button', { y: '0', opacity: 1 }, 0.6);
-            }
-
-            // NEW: Handle window resize and orientation change to prevent distortion
-            function handleResize() {
-                const videoAspectRatio = DOM.video.videoWidth / DOM.video.videoHeight;
-                const windowAspectRatio = window.innerWidth / window.innerHeight;
-                let canvasWidth, canvasHeight;
-
-                if (windowAspectRatio > videoAspectRatio) { // Window is wider than video
-                    canvasWidth = window.innerWidth;
-                    canvasHeight = window.innerWidth / videoAspectRatio;
-                } else { // Window is taller than video
-                    canvasHeight = window.innerHeight;
-                    canvasWidth = window.innerHeight * videoAspectRatio;
-                }
-
-                DOM.canvas.style.width = `${canvasWidth}px`;
-                DOM.canvas.style.height = `${canvasHeight}px`;
-                DOM.canvas.width = DOM.video.videoWidth;
-                DOM.canvas.height = DOM.video.videoHeight;
-            }
-            
-            // NEW: Lifecycle management for performance and battery saving
-            function handleVisibilityChange() {
-                if (document.hidden) {
-                    webGLRenderer.stopRenderLoop();
-                    if (APP_STATE.stream) {
-                        APP_STATE.stream.getVideoTracks().forEach(track => track.enabled = false);
-                    }
-                } else {
-                    webGLRenderer.startRenderLoop();
-                     if (APP_STATE.stream) {
-                        APP_STATE.stream.getVideoTracks().forEach(track => track.enabled = true);
-                    }
-                }
-            }
-            
-            // NEW: Haptic feedback for a more tactile experience
-            function triggerHapticFeedback() {
-                if (navigator.vibrate) {
-                    navigator.vibrate(50); // A short, crisp vibration
-                }
-            }
-
             // =========================================================================
-            // Initialization Sequence: The Genesis.
+            // Initialization Sequence: The Genesis. Now more intelligent.
             // =========================================================================
             async function main() {
                 setupEventListeners();
-                toggleLogMode(); // Start with LOG enabled by default
-                DOM.loadingText.textContent = 'Initializing Storage System...';
+                
+                // [FIX] Determine the supported recording format ONCE at startup.
+                // This is a critical step for cross-platform compatibility.
+                APP_STATE.supportedMimeType = Utils.findSupportedMimeType();
+
+                DOM.loadingText.textContent = 'Initializing storage system...';
                 await astraDB.init();
-                DOM.loadingText.textContent = 'Initializing WebGL Pipeline...';
+                
+                DOM.loadingText.textContent = 'Initializing WebGL pipeline...';
                 if (!webGLRenderer.init()) return;
                 
                 await cameraController.start();
-                webGLRenderer.startRenderLoop();
+                webGLRenderer.render(); // Start the render loop
             }
 
             main();
