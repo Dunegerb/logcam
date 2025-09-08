@@ -1,0 +1,425 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>LOGARITHM</title>
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <style>
+        :root {
+            --primary-color: #f5f5f7;
+            --accent-color: #ff3b30;
+            --background-color: #000000;
+            --font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+            --ui-bg: rgba(28, 28, 30, 0.7);
+        }
+        * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+        html, body {
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+            background: var(--background-color);
+            font-family: var(--font-family);
+            -webkit-font-smoothing: antialiased;
+            color: var(--primary-color);
+        }
+        #app-container {
+            position: fixed;
+            top: 0; left: 0;
+            width: 100%;
+            height: 100%;
+        }
+        #main-canvas {
+            position: absolute;
+            top: 0; left: 0;
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+        #ui-overlay {
+            position: absolute; top: 0; left: 0;
+            width: 100%; height: 100%;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            pointer-events: none;
+            opacity: 0;
+            transition: opacity 0.5s ease;
+        }
+        #ui-overlay.visible { opacity: 1; }
+        .safe-area {
+            padding-top: constant(safe-area-inset-top);
+            padding-right: constant(safe-area-inset-right);
+            padding-bottom: constant(safe-area-inset-bottom);
+            padding-left: constant(safe-area-inset-left);
+            padding-top: env(safe-area-inset-top);
+            padding-right: env(safe-area-inset-right);
+            padding-bottom: env(safe-area-inset-bottom);
+            padding-left: env(safe-area-inset-left);
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            height: 100%;
+        }
+        .top-bar, .bottom-bar {
+            width: 100%;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-size: 14px;
+            font-weight: 600;
+            text-shadow: 0 1px 3px rgba(0,0,0,0.5);
+            padding: 15px 20px;
+        }
+        #record-button {
+            pointer-events: all;
+            background: transparent;
+            border: none;
+            width: 70px; height: 70px;
+            cursor: pointer;
+            position: relative;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            outline: none;
+        }
+        .record-ring {
+            width: 64px; height: 64px;
+            border: 3px solid var(--primary-color);
+            border-radius: 50%;
+            transition: all 0.3s cubic-bezier(0.19, 1, 0.22, 1);
+        }
+        #record-button.recording .record-ring {
+            border-color: var(--accent-color);
+            animation: pulse 1.5s infinite;
+        }
+        #record-button::before {
+            content: ''; position: absolute;
+            width: 50px; height: 50px;
+            background: var(--primary-color);
+            border-radius: 50%;
+            transform: scale(0);
+            transition: all 0.3s cubic-bezier(0.19, 1, 0.22, 1);
+        }
+        #record-button.recording::before {
+            transform: scale(0.45);
+            background: var(--accent-color);
+            border-radius: 8px;
+        }
+        @keyframes pulse { 0% { opacity: 1; } 50% { opacity: 0.7; } 100% { opacity: 1; } }
+        .ui-button {
+            pointer-events: all;
+            background: var(--ui-bg);
+            border: 1px solid rgba(255,255,255,0.1);
+            backdrop-filter: blur(10px);
+            -webkit-backdrop-filter: blur(10px);
+            color: var(--primary-color);
+            padding: 8px 16px;
+            border-radius: 20px;
+            font-weight: 600;
+            cursor: pointer;
+            font-size: 14px;
+        }
+        #startup-screen {
+            position: fixed; top: 0; left: 0;
+            width: 100%; height: 100%;
+            background: var(--background-color);
+            display: flex; flex-direction: column;
+            justify-content: center; align-items: center;
+            z-index: 100;
+            transition: opacity 0.5s ease;
+        }
+        #startup-screen.hidden { opacity: 0; pointer-events: none; }
+        #startup-screen h1 { font-size: 24px; font-weight: 700; margin-bottom: 10px; }
+        #startup-screen p { max-width: 80%; text-align: center; color: #888; margin-bottom: 30px; }
+        #start-camera-btn {
+            font-size: 16px;
+            font-weight: 600;
+            padding: 15px 30px;
+            border-radius: 30px;
+            border: none;
+            background: var(--primary-color);
+            color: var(--background-color);
+            cursor: pointer;
+        }
+        #error-message {
+            position: fixed; top: 20px; left: 50%;
+            transform: translateX(-50%);
+            background: var(--accent-color);
+            color: white;
+            padding: 10px 20px;
+            border-radius: 10px;
+            z-index: 200;
+            display: none;
+            font-size: 14px;
+            text-align: center;
+        }
+    </style>
+</head>
+<body>
+    <div id="app-container">
+        <!-- Canvas visível onde a mágica acontece -->
+        <canvas id="main-canvas"></canvas>
+        <!-- Elementos ocultos para processamento -->
+        <video id="raw-video" autoplay playsinline muted style="display:none;"></video>
+        <canvas id="hidden-canvas" style="display:none;"></canvas>
+
+        <!-- Tela de Início / Permissão -->
+        <div id="startup-screen">
+            <h1>LOGARITHM</h1>
+            <p>O poder do cinema digital no seu bolso. Toque para iniciar a câmera.</p>
+            <button id="start-camera-btn">INICIAR CÂMERA</button>
+        </div>
+
+        <!-- Interface de Usuário (UI) -->
+        <div id="ui-overlay">
+            <div class="safe-area">
+                <div class="top-bar">
+                    <span id="resolution">---P</span>
+                    <span id="status"></span>
+                </div>
+                <div class="bottom-bar">
+                    <div class="ui-button" style="opacity:0; pointer-events: none;"></div> <!-- Spacer -->
+                    <button id="record-button" disabled></button>
+                    <div class="ui-button" style="opacity:0; pointer-events: none;"></div> <!-- Spacer -->
+                </div>
+            </div>
+        </div>
+
+        <!-- Mensagem de Erro -->
+        <div id="error-message"></div>
+    </div>
+
+    <script>
+    class LogarithmLegacyCore {
+        constructor() {
+            // Elementos DOM
+            this.elements = {
+                startupScreen: document.getElementById('startup-screen'),
+                startBtn: document.getElementById('start-camera-btn'),
+                uiOverlay: document.getElementById('ui-overlay'),
+                video: document.getElementById('raw-video'),
+                mainCanvas: document.getElementById('main-canvas'),
+                hiddenCanvas: document.getElementById('hidden-canvas'),
+                recordBtn: document.getElementById('record-button'),
+                resolutionDisplay: document.getElementById('resolution'),
+                statusDisplay: document.getElementById('status'),
+                errorMessage: document.getElementById('error-message')
+            };
+
+            // Contextos de Canvas
+            this.mainCtx = this.elements.mainCanvas.getContext('2d');
+            this.hiddenCtx = this.elements.hiddenCanvas.getContext('2d');
+
+            // Estado da Aplicação
+            this.isProcessing = false;
+            this.isRecording = false;
+            this.stream = null;
+            this.mediaRecorder = null;
+            this.recordedChunks = [];
+            
+            this.init();
+        }
+
+        init() {
+            this.elements.startBtn.addEventListener('click', () => this.startCamera());
+            this.elements.recordBtn.addEventListener('click', () => this.toggleRecording());
+        }
+        
+        showError(message) {
+            this.elements.errorMessage.textContent = message;
+            this.elements.errorMessage.style.display = 'block';
+            setTimeout(() => {
+                this.elements.errorMessage.style.display = 'none';
+            }, 5000);
+        }
+
+        async startCamera() {
+            this.elements.startBtn.disabled = true;
+            this.elements.startBtn.textContent = 'INICIANDO...';
+            
+            if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+                this.showError('API de câmera não suportada neste navegador.');
+                this.elements.startBtn.textContent = 'ERRO';
+                return;
+            }
+
+            // Constraints super flexíveis para máxima compatibilidade
+            const constraints = {
+                video: {
+                    facingMode: 'environment', // Câmera traseira
+                    // Não especificamos resolução ou framerate para deixar o dispositivo escolher
+                },
+                audio: true
+            };
+
+            try {
+                this.stream = await navigator.mediaDevices.getUserMedia(constraints);
+                this.elements.video.srcObject = this.stream;
+                this.elements.video.onloadedmetadata = () => {
+                    this.setupCanvases();
+                    this.isProcessing = true;
+                    this.processFrame();
+
+                    this.elements.startupScreen.classList.add('hidden');
+                    this.elements.uiOverlay.classList.add('visible');
+                    this.elements.recordBtn.disabled = false;
+                };
+            } catch (err) {
+                console.error("Erro ao acessar a câmera: ", err);
+                let message = 'Não foi possível acessar a câmera.';
+                if (err.name === 'NotAllowedError') {
+                    message = 'Permissão para câmera negada. Habilite nas configurações.';
+                } else if (err.name === 'NotFoundError') {
+                    message = 'Nenhuma câmera traseira foi encontrada.';
+                } else {
+                    message = 'Erro ao iniciar câmera. Use HTTPS e dê permissão.';
+                }
+                this.showError(message);
+                this.elements.startBtn.disabled = false;
+                this.elements.startBtn.textContent = 'TENTAR NOVAMENTE';
+            }
+        }
+        
+        setupCanvases() {
+            const videoWidth = this.elements.video.videoWidth;
+            const videoHeight = this.elements.video.videoHeight;
+            
+            this.elements.resolutionDisplay.textContent = `${videoHeight}P`;
+            
+            // Ajustar o tamanho dos canvas para a resolução do vídeo
+            this.elements.hiddenCanvas.width = videoWidth;
+            this.elements.hiddenCanvas.height = videoHeight;
+            
+            // Ajustar o tamanho do canvas principal para preencher a tela
+            const screenWidth = window.innerWidth;
+            const screenHeight = window.innerHeight;
+            this.elements.mainCanvas.width = screenWidth;
+            this.elements.mainCanvas.height = screenHeight;
+        }
+
+        processFrame() {
+            if (!this.isProcessing) return;
+
+            const video = this.elements.video;
+            const hiddenCtx = this.hiddenCtx;
+            const mainCtx = this.mainCtx;
+            const width = video.videoWidth;
+            const height = video.videoHeight;
+
+            if (width === 0 || height === 0) {
+                requestAnimationFrame(() => this.processFrame());
+                return;
+            }
+
+            // 1. Desenha o quadro atual do vídeo no canvas oculto
+            hiddenCtx.drawImage(video, 0, 0, width, height);
+
+            // 2. Obtém os dados de pixel (um array gigante [R,G,B,A, R,G,B,A, ...])
+            const imageData = hiddenCtx.getImageData(0, 0, width, height);
+            const data = imageData.data;
+
+            // 3. Loop através de cada pixel para aplicar o efeito LOG
+            for (let i = 0; i < data.length; i += 4) {
+                // Normaliza para 0-1
+                const r = data[i] / 255;
+                const g = data[i + 1] / 255;
+                const b = data[i + 2] / 255;
+
+                // Converte de sRGB para espaço de cor Linear (gama 2.2 aproximado)
+                const linearR = Math.pow(r, 2.2);
+                const linearG = Math.pow(g, 2.2);
+                const linearB = Math.pow(b, 2.2);
+
+                // Calcula a luminância (brilho percebido)
+                const luminance = 0.2126 * linearR + 0.7152 * linearG + 0.0722 * linearB;
+
+                // Aplica uma curva logarítmica simplificada
+                const logLuminance = Math.log2(luminance * 5.0 + 1.0) / Math.log2(6.0);
+                
+                // Converte de volta para 0-255 e aplica a todos os canais (escala de cinza)
+                const gray = Math.max(0, Math.min(255, logLuminance * 255));
+                
+                data[i] = data[i + 1] = data[i + 2] = gray;
+            }
+
+            // 4. Coloca os dados de pixel modificados de volta no canvas oculto
+            hiddenCtx.putImageData(imageData, 0, 0);
+
+            // 5. Desenha o resultado do canvas oculto no canvas principal, preenchendo a tela
+            mainCtx.drawImage(this.elements.hiddenCanvas, 0, 0, this.elements.mainCanvas.width, this.elements.mainCanvas.height);
+
+            // Continua o loop
+            requestAnimationFrame(() => this.processFrame());
+        }
+        
+        toggleRecording() {
+            this.isRecording = !this.isRecording;
+            this.elements.recordBtn.classList.toggle('recording', this.isRecording);
+            
+            if (this.isRecording) {
+                this.startRecording();
+            } else {
+                this.stopRecording();
+            }
+        }
+
+        startRecording() {
+            if (!this.elements.mainCanvas.captureStream || typeof MediaRecorder === 'undefined') {
+                this.showError('API de gravação não suportada neste navegador.');
+                this.isRecording = false;
+                this.elements.recordBtn.classList.remove('recording');
+                return;
+            }
+            
+            this.recordedChunks = [];
+            const canvasStream = this.elements.mainCanvas.captureStream(30); // Captura 30fps
+            
+            // Adiciona a faixa de áudio do stream original da câmera
+            const audioTracks = this.stream.getAudioTracks();
+            if (audioTracks.length > 0) {
+                canvasStream.addTrack(audioTracks[0]);
+            }
+            
+            this.mediaRecorder = new MediaRecorder(canvasStream, { mimeType: 'video/webm' });
+            
+            this.mediaRecorder.ondataavailable = (event) => {
+                if (event.data.size > 0) {
+                    this.recordedChunks.push(event.data);
+                }
+            };
+            
+            this.mediaRecorder.onstart = () => {
+                this.elements.statusDisplay.textContent = 'GRAVANDO';
+            };
+
+            this.mediaRecorder.onstop = () => {
+                this.elements.statusDisplay.textContent = '';
+                const blob = new Blob(this.recordedChunks, { type: 'video/webm' });
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.style.display = 'none';
+                a.href = url;
+                a.download = `LOGARITHM_${Date.now()}.webm`;
+                document.body.appendChild(a);
+                a.click();
+                window.URL.revokeObjectURL(url);
+                document.body.removeChild(a);
+            };
+
+            this.mediaRecorder.start();
+        }
+
+        stopRecording() {
+            if (this.mediaRecorder && this.mediaRecorder.state === 'recording') {
+                this.mediaRecorder.stop();
+            }
+        }
+    }
+
+    // Iniciar a aplicação
+    window.addEventListener('load', () => new LogarithmLegacyCore());
+    </script>
+</body>
+</html>
