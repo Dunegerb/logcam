@@ -399,191 +399,43 @@
 
     <!-- SHADERS remain unchanged as their logic is pure and correct -->
     <script id="vertex-shader" type="x-shader/x-vertex">
-        attribute vec2 a_position;
-        attribute vec2 a_texCoord;
-        varying vec2 v_texCoord;
-        void main() {
-            gl_Position = vec4(a_position, 0.0, 1.0);
-            v_texCoord = a_texCoord;
-        }
+        attribute vec2 a_position; attribute vec2 a_texCoord; varying vec2 v_texCoord; void main() { gl_Position = vec4(a_position, 0.0, 1.0); v_texCoord = a_texCoord; }
     </script>
     <script id="fragment-shader" type="x-shader/x-fragment">
-        precision highp float;
-        uniform sampler2D u_texture;
-        uniform bool u_log_enabled;
-        uniform vec2 u_resolution;
-        uniform float u_time;
-        varying vec2 v_texCoord;
-
-        const vec3 REC709_LUMA_WEIGHTS = vec3(0.2126, 0.7152, 0.0722);
-
-        float hash(vec2 p) { return fract(sin(dot(p, vec2(12.9898, 78.233))) * 43758.5453); }
-
-        vec3 rec709ToLinear(vec3 color) { return pow(color, vec3(2.2)); }
-
-        vec3 linearToSLog3(vec3 linearColor) { return pow(linearColor, vec3(1.0 / 2.6)); }
-
-        vec3 applyAIDelta(vec3 color) {
-            float grainAmount = (hash(v_texCoord + u_time) - 0.5) * 0.03;
-            color += grainAmount;
-            
-            vec2 offset = 1.0 / u_resolution;
-            vec3 blur = texture2D(u_texture, v_texCoord - offset).rgb +
-                        texture2D(u_texture, v_texCoord + offset).rgb +
-                        texture2D(u_texture, v_texCoord + vec2(-offset.x, offset.y)).rgb +
-                        texture2D(u_texture, v_texCoord + vec2(offset.x, -offset.y)).rgb;
-            blur /= 4.0;
-            color = mix(blur, color, 1.2);
-
-            return color;
-        }
-
-        void main() {
-            vec3 originalColor = texture2D(u_texture, v_texCoord).rgb;
-            if (u_log_enabled) {
-                vec3 linear = rec709ToLinear(originalColor);
-                vec3 logEncoded = linearToSLog3(linear);
-                vec3 finalColor = applyAIDelta(logEncoded);
-                gl_FragColor = vec4(clamp(finalColor, 0.0, 1.0), 1.0);
-            } else {
-                gl_FragColor = vec4(originalColor, 1.0);
-            }
-        }
+        precision highp float; uniform sampler2D u_texture; uniform bool u_log_enabled; uniform vec2 u_resolution; uniform float u_time; varying vec2 v_texCoord; float hash(vec2 p) { return fract(sin(dot(p, vec2(12.9898, 78.233))) * 43758.5453); } vec3 rec709ToLinear(vec3 color) { return pow(color, vec3(2.2)); } vec3 linearToSLog3(vec3 linearColor) { return pow(linearColor, vec3(1.0 / 2.6)); } vec3 applyAIDelta(vec3 color) { float grainAmount = (hash(v_texCoord + u_time) - 0.5) * 0.03; color += grainAmount; vec2 offset = 1.0 / u_resolution; vec3 blur = texture2D(u_texture, v_texCoord - offset).rgb + texture2D(u_texture, v_texCoord + offset).rgb + texture2D(u_texture, v_texCoord + vec2(-offset.x, offset.y)).rgb + texture2D(u_texture, v_texCoord + vec2(offset.x, -offset.y)).rgb; blur /= 4.0; color = mix(blur, color, 1.2); return color; } void main() { vec3 originalColor = texture2D(u_texture, v_texCoord).rgb; if (u_log_enabled) { vec3 linear = rec709ToLinear(originalColor); vec3 logEncoded = linearToSLog3(linear); vec3 finalColor = applyAIDelta(logEncoded); gl_FragColor = vec4(clamp(finalColor, 0.0, 1.0), 1.0); } else { gl_FragColor = vec4(originalColor, 1.0); } }
     </script>
     
     <script>
         document.addEventListener('DOMContentLoaded', () => {
             
             const APP_STATE = {
-                isRecording: false,
-                stream: null,
-                mediaRecorder: null,
-                recordedChunks: [],
-                facingMode: 'environment',
-                isLogEnabled: false,
-                supportedMimeType: '', // [FIX] Store the determined supported MIME type
-                gl: null,
-                glProgram: null,
-                videoTexture: null,
-                renderer: {
-                    positionBuffer: null,
-                    texCoordBuffer: null,
-                    locations: {}
-                }
+                isRecording: false, stream: null, mediaRecorder: null, recordedChunks: [], facingMode: 'environment', isLogEnabled: false, supportedMimeType: '', gl: null, glProgram: null, videoTexture: null,
+                renderer: { positionBuffer: null, texCoordBuffer: null, locations: {} }
             };
 
             const DOM = {
-                video: document.getElementById('camera-feed'),
-                canvas: document.getElementById('main-canvas'),
-                recordButton: document.getElementById('record-button'),
-                switchCameraButton: document.getElementById('switch-camera-button'),
-                galleryButton: document.getElementById('gallery-button'),
-                logToggleButton: document.getElementById('log-toggle-button'),
-                recIndicator: document.getElementById('rec-indicator'),
-                logStatus: document.getElementById('log-status'),
-                resolutionStatus: document.getElementById('resolution-status'), // [FIX] Grab the resolution status element
-                galleryModal: document.getElementById('gallery-modal'),
-                closeGalleryButton: document.getElementById('close-gallery-button'),
-                galleryGrid: document.getElementById('gallery-grid'),
-                loadingOverlay: document.getElementById('loading-overlay'),
-                loadingText: document.getElementById('loading-text'),
-                videoPlayerModal: document.getElementById('video-player-modal'),
-                galleryVideoPlayer: document.getElementById('gallery-video-player'),
-                closePlayerButton: document.querySelector('.close-player')
+                video: document.getElementById('camera-feed'), canvas: document.getElementById('main-canvas'), recordButton: document.getElementById('record-button'), switchCameraButton: document.getElementById('switch-camera-button'), galleryButton: document.getElementById('gallery-button'), logToggleButton: document.getElementById('log-toggle-button'), recIndicator: document.getElementById('rec-indicator'), logStatus: document.getElementById('log-status'), resolutionStatus: document.getElementById('resolution-status'), galleryModal: document.getElementById('gallery-modal'), closeGalleryButton: document.getElementById('close-gallery-button'), galleryGrid: document.getElementById('gallery-grid'), loadingOverlay: document.getElementById('loading-overlay'), loadingText: document.getElementById('loading-text'), videoPlayerModal: document.getElementById('video-player-modal'), galleryVideoPlayer: document.getElementById('gallery-video-player'), closePlayerButton: document.querySelector('.close-player')
             };
 
-            // =========================================================================
-            // Utility Module: Intelligent helpers that adapt to the environment.
-            // =========================================================================
             const Utils = {
-                // [FIX] A new function to intelligently find a supported MIME type.
                 findSupportedMimeType: function() {
-                    const candidates = [
-                        'video/mp4; codecs="avc1.42E01E, mp4a.40.2"', // MP4 with H.264/AAC (for iOS/Safari)
-                        'video/webm; codecs=vp9,opus', // WebM with VP9/Opus (for Chrome/Firefox)
-                        'video/webm; codecs=vp8,opus',
-                        'video/webm'
-                    ];
-                    for (const candidate of candidates) {
-                        if (MediaRecorder.isTypeSupported(candidate)) {
-                            console.log(`Using supported MIME type: ${candidate}`);
-                            return candidate;
-                        }
-                    }
-                    console.warn('No strongly supported MIME type found. Recording may fail.');
-                    return null; // Fallback
+                    const candidates = [ 'video/mp4; codecs="avc1.42E01E, mp4a.40.2"', 'video/webm; codecs=vp9,opus', 'video/webm; codecs=vp8,opus', 'video/webm' ];
+                    for (const candidate of candidates) { if (MediaRecorder.isTypeSupported(candidate)) { console.log(`Using supported MIME type: ${candidate}`); return candidate; } }
+                    console.warn('No strongly supported MIME type found. Recording may fail.'); return '';
                 }
             };
 
-            // =========================================================================
-            // IndexedDB Module (Unchanged)
-            // =========================================================================
             const astraDB = (function() { /* ... unchanged ... */ 
-                let db;
-                const DB_NAME = 'ProjectChimeraDB';
-                const STORE_NAME = 'recordings';
-
-                function init() {
-                    return new Promise((resolve, reject) => {
-                        const request = indexedDB.open(DB_NAME, 1);
-                        request.onerror = (e) => reject("IndexedDB error: " + e.target.errorCode);
-                        request.onsuccess = (e) => { db = e.target.result; resolve(); };
-                        request.onupgradeneeded = (e) => { e.target.result.createObjectStore(STORE_NAME, { keyPath: 'id', autoIncrement: true }); };
-                    });
-                }
-                function saveVideo(blob) {
-                    return new Promise((resolve, reject) => {
-                        const transaction = db.transaction([STORE_NAME], 'readwrite');
-                        const store = transaction.objectStore(STORE_NAME);
-                        const videoRecord = { blob: blob, timestamp: new Date().toISOString(), size: blob.size };
-                        const request = store.add(videoRecord);
-                        request.onsuccess = resolve;
-                        request.onerror = reject;
-                    });
-                }
-                function getAllVideos() {
-                    return new Promise((resolve, reject) => {
-                        const transaction = db.transaction([STORE_NAME], 'readonly');
-                        const store = transaction.objectStore(STORE_NAME);
-                        const request = store.getAll();
-                        request.onsuccess = (e) => resolve(e.target.result.reverse());
-                        request.onerror = reject;
-                    });
-                }
-                function deleteVideo(id) {
-                    return new Promise((resolve, reject) => {
-                        const transaction = db.transaction([STORE_NAME], 'readwrite');
-                        const store = transaction.objectStore(STORE_NAME);
-                        const request = store.delete(id);
-                        request.onsuccess = resolve;
-                        request.onerror = reject;
-                    });
-                }
+                let db; const DB_NAME = 'ProjectChimeraDB'; const STORE_NAME = 'recordings';
+                function init() { return new Promise((resolve, reject) => { const request = indexedDB.open(DB_NAME, 1); request.onerror = (e) => reject("IndexedDB error: " + e.target.errorCode); request.onsuccess = (e) => { db = e.target.result; resolve(); }; request.onupgradeneeded = (e) => { e.target.result.createObjectStore(STORE_NAME, { keyPath: 'id', autoIncrement: true }); }; }); }
+                function saveVideo(blob) { return new Promise((resolve, reject) => { const transaction = db.transaction([STORE_NAME], 'readwrite'); const store = transaction.objectStore(STORE_NAME); const videoRecord = { blob: blob, timestamp: new Date().toISOString(), size: blob.size }; const request = store.add(videoRecord); request.onsuccess = resolve; request.onerror = reject; }); }
+                function getAllVideos() { return new Promise((resolve, reject) => { const transaction = db.transaction([STORE_NAME], 'readonly'); const store = transaction.objectStore(STORE_NAME); const request = store.getAll(); request.onsuccess = (e) => resolve(e.target.result.reverse()); request.onerror = reject; }); }
+                function deleteVideo(id) { return new Promise((resolve, reject) => { const transaction = db.transaction([STORE_NAME], 'readwrite'); const store = transaction.objectStore(STORE_NAME); const request = store.delete(id); request.onsuccess = resolve; request.onerror = reject; }); }
                 return { init, saveVideo, getAllVideos, deleteVideo };
             })();
 
-            // =========================================================================
-            // WebGL Renderer Module (Unchanged)
-            // =========================================================================
             const webGLRenderer = (function() { /* ... unchanged ... */
-                function init() {
-                    APP_STATE.gl = DOM.canvas.getContext('webgl', { antialias: false, powerPreference: 'high-performance' });
-                    const gl = APP_STATE.gl; if (!gl) { alert('WebGL is not supported.'); return false; }
-                    const vsSource = document.getElementById('vertex-shader').text;
-                    const fsSource = document.getElementById('fragment-shader').text;
-                    const vertexShader = createShader(gl, gl.VERTEX_SHADER, vsSource);
-                    const fragmentShader = createShader(gl, gl.FRAGMENT_SHADER, fsSource);
-                    APP_STATE.glProgram = createProgram(gl, vertexShader, fragmentShader);
-                    APP_STATE.renderer.locations = {
-                        position: gl.getAttribLocation(APP_STATE.glProgram, 'a_position'),
-                        texCoord: gl.getAttribLocation(APP_STATE.glProgram, 'a_texCoord'),
-                        texture: gl.getUniformLocation(APP_STATE.glProgram, 'u_texture'),
-                        logEnabled: gl.getUniformLocation(APP_STATE.glProgram, 'u_log_enabled'),
-                        resolution: gl.getUniformLocation(APP_STATE.glProgram, 'u_resolution'),
-                        time: gl.getUniformLocation(APP_STATE.glProgram, 'u_time'),
-                    };
-                    setupBuffers(gl); setupTexture(gl); return true;
-                }
+                function init() { APP_STATE.gl = DOM.canvas.getContext('webgl', { antialias: false, powerPreference: 'high-performance' }); const gl = APP_STATE.gl; if (!gl) { alert('WebGL is not supported.'); return false; } const vsSource = document.getElementById('vertex-shader').text; const fsSource = document.getElementById('fragment-shader').text; const vertexShader = createShader(gl, gl.VERTEX_SHADER, vsSource); const fragmentShader = createShader(gl, gl.FRAGMENT_SHADER, fsSource); APP_STATE.glProgram = createProgram(gl, vertexShader, fragmentShader); APP_STATE.renderer.locations = { position: gl.getAttribLocation(APP_STATE.glProgram, 'a_position'), texCoord: gl.getAttribLocation(APP_STATE.glProgram, 'a_texCoord'), texture: gl.getUniformLocation(APP_STATE.glProgram, 'u_texture'), logEnabled: gl.getUniformLocation(APP_STATE.glProgram, 'u_log_enabled'), resolution: gl.getUniformLocation(APP_STATE.glProgram, 'u_resolution'), time: gl.getUniformLocation(APP_STATE.glProgram, 'u_time'), }; setupBuffers(gl); setupTexture(gl); return true; }
                 function createShader(gl, type, source) { const shader = gl.createShader(type); gl.shaderSource(shader, source); gl.compileShader(shader); if (!gl.getShaderParameter(shader, gl.COMPILE_STATUS)) { console.error('Shader compile error: ' + gl.getShaderInfoLog(shader)); gl.deleteShader(shader); return null; } return shader; }
                 function createProgram(gl, vs, fs) { const program = gl.createProgram(); gl.attachShader(program, vs); gl.attachShader(program, fs); gl.linkProgram(program); if (!gl.getProgramParameter(program, gl.LINK_STATUS)) { console.error('Program link error: ' + gl.getProgramInfoLog(program)); return null; } return program; }
                 function setupBuffers(gl) { const positions = [-1.0, 1.0, 1.0, 1.0, -1.0, -1.0, 1.0, -1.0]; const texCoords = [0.0, 0.0, 1.0, 0.0, 0.0, 1.0, 1.0, 1.0]; APP_STATE.renderer.positionBuffer = gl.createBuffer(); gl.bindBuffer(gl.ARRAY_BUFFER, APP_STATE.renderer.positionBuffer); gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(positions), gl.STATIC_DRAW); APP_STATE.renderer.texCoordBuffer = gl.createBuffer(); gl.bindBuffer(gl.ARRAY_BUFFER, APP_STATE.renderer.texCoordBuffer); gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(texCoords), gl.STATIC_DRAW); }
@@ -593,60 +445,34 @@
                 return { init, render };
             })();
 
-            // =========================================================================
-            // Camera & Recording Module: Now with adaptive intelligence.
-            // =========================================================================
             const cameraController = (function() {
-                // [FIX] This is the core of the compatibility solution for Android devices.
-                // We now try a cascade of constraints, from ideal to basic, ensuring we get a stream.
                 async function negotiateStream(facingMode) {
                     const constraintCascade = [
-                        { video: { facingMode, width: { ideal: 1920 }, height: { ideal: 1080 }, frameRate: { ideal: 60 } } },
-                        { video: { facingMode, width: { ideal: 1920 }, height: { ideal: 1080 }, frameRate: { ideal: 30 } } },
-                        { video: { facingMode, width: { ideal: 1280 }, height: { ideal: 720 }, frameRate: { ideal: 30 } } },
-                        { video: { facingMode } }, // Fallback to any camera
-                        { video: true } // Absolute fallback
+                        { video: { facingMode, width: { ideal: 1920 }, height: { ideal: 1080 } } },
+                        { video: { facingMode, width: { ideal: 1280 }, height: { ideal: 720 } } },
+                        { video: { facingMode } }, { video: true }
                     ];
-
                     for (let constraints of constraintCascade) {
-                        try {
-                            const stream = await navigator.mediaDevices.getUserMedia({...constraints, audio: true});
-                            console.log("Successfully acquired stream with constraints:", constraints);
-                            return stream;
-                        } catch (err) {
-                            console.warn(`Constraints failed:`, constraints, `Error: ${err.name}`);
-                        }
+                        try { return await navigator.mediaDevices.getUserMedia({...constraints, audio: true}); } catch (err) { console.warn(`Constraints failed:`, constraints, `Error: ${err.name}`); }
                     }
-                    throw new Error("Could not acquire any camera stream. All constraint options failed.");
+                    throw new Error("Could not acquire any camera stream.");
                 }
 
                 async function start() {
                     try {
-                        if (APP_STATE.stream) {
-                            APP_STATE.stream.getTracks().forEach(track => track.stop());
-                        }
-                        
+                        if (APP_STATE.stream) { APP_STATE.stream.getTracks().forEach(track => track.stop()); }
                         DOM.loadingText.textContent = 'Negotiating with hardware...';
                         APP_STATE.stream = await negotiateStream(APP_STATE.facingMode);
                         DOM.video.srcObject = APP_STATE.stream;
-                        
                         DOM.video.onloadedmetadata = () => {
                             const settings = APP_STATE.stream.getVideoTracks()[0].getSettings();
-                            console.log(`Actual stream resolution: ${settings.width}x${settings.height} @ ${settings.frameRate}fps`);
-                            
-                            // [FIX] Update the UI with the *actual* resolution.
-                            DOM.resolutionStatus.textContent = `${settings.height}p${settings.frameRate}`;
-                            
-                            const aspectRatio = DOM.video.videoWidth / DOM.video.videoHeight;
-                            DOM.canvas.width = DOM.video.videoWidth; // Match render target to source for 1:1 pixel processing
-                            DOM.canvas.height = DOM.video.videoHeight;
-                            DOM.loadingOverlay.style.opacity = '0';
-                            DOM.loadingOverlay.style.pointerEvents = 'none';
+                            DOM.resolutionStatus.textContent = `${settings.height}p${Math.round(settings.frameRate || 30)}`;
+                            DOM.canvas.width = DOM.video.videoWidth; DOM.canvas.height = DOM.video.videoHeight;
+                            DOM.loadingOverlay.style.opacity = '0'; DOM.loadingOverlay.style.pointerEvents = 'none';
                         };
-
                     } catch (err) {
                         console.error("Fatal camera access error:", err);
-                        DOM.loadingText.textContent = `Error: ${err.message}. Please check camera permissions and reload.`;
+                        DOM.loadingText.textContent = `Error: ${err.message}. Please check permissions and reload.`;
                         DOM.loadingOverlay.querySelector('.spinner').style.display = 'none';
                     }
                 }
@@ -658,43 +484,27 @@
 
                 function startRecording() {
                     if (!APP_STATE.stream || APP_STATE.isRecording) return;
-
-                    // [FIX] Use the globally determined MIME type. No more hardcoding.
-                    if (!APP_STATE.supportedMimeType) {
-                        alert("Recording is not supported on this browser.");
-                        return;
-                    }
+                    if (!APP_STATE.supportedMimeType) { alert("Recording is not supported on this browser."); return; }
                     
                     APP_STATE.recordedChunks = [];
-                    const canvasStream = DOM.canvas.captureStream(30); // Capping at 30fps for recording stability on mobile
-                    
+                    const canvasStream = DOM.canvas.captureStream(30);
                     const audioTrack = APP_STATE.stream.getAudioTracks()[0];
-                    if (audioTrack) {
-                        canvasStream.addTrack(audioTrack.clone());
-                    }
+                    if (audioTrack) { canvasStream.addTrack(audioTrack.clone()); }
 
                     const options = { mimeType: APP_STATE.supportedMimeType, videoBitsPerSecond: 10000000 };
                     
-                    try {
-                        APP_STATE.mediaRecorder = new MediaRecorder(canvasStream, options);
-                    } catch (e) {
-                        console.error("MediaRecorder instantiation failed:", e);
-                        alert(`Failed to start recorder with type ${APP_STATE.supportedMimeType}`);
-                        return;
-                    }
+                    try { APP_STATE.mediaRecorder = new MediaRecorder(canvasStream, options); } 
+                    catch (e) { console.error("MediaRecorder instantiation failed:", e); alert(`Failed to start recorder.`); return; }
 
                     APP_STATE.mediaRecorder.ondataavailable = (event) => {
-                        if (event.data.size > 0) {
-                            APP_STATE.recordedChunks.push(event.data);
-                        }
+                        if (event.data.size > 0) APP_STATE.recordedChunks.push(event.data);
                     };
 
                     APP_STATE.mediaRecorder.onstop = async () => {
                         const blob = new Blob(APP_STATE.recordedChunks, { type: APP_STATE.supportedMimeType });
                         await astraDB.saveVideo(blob);
-                        console.log('Recording saved to IndexedDB.');
-                        updateUIForRecording(false);
-                        populateGallery();
+                        console.log('Recording saved successfully.');
+                        APP_STATE.recordedChunks = []; // Clear chunks for next recording
                     };
 
                     APP_STATE.mediaRecorder.start(1000);
@@ -702,40 +512,61 @@
                 }
 
                 function stopRecording() {
-                    if (APP_STATE.mediaRecorder && APP_STATE.isRecording) {
-                        APP_STATE.mediaRecorder.stop();
+                    // [THE FIX] This is the critical change.
+                    // We must check the recorder's state directly from the API.
+                    // On iOS, we must also explicitly request the final data chunk
+                    // BEFORE calling stop(), otherwise the 'onstop' event may never fire.
+                    if (!APP_STATE.mediaRecorder || APP_STATE.mediaRecorder.state !== 'recording') {
+                        // If our UI is out of sync, fix it.
+                        if(APP_STATE.isRecording) updateUIForRecording(false);
+                        return;
                     }
+                    
+                    console.log('Stopping recording...');
+                    // This is the command that forces Safari to comply.
+                    APP_STATE.mediaRecorder.requestData();
+                    APP_STATE.mediaRecorder.stop();
+
+                    // The UI update is now separated to provide immediate feedback to the user,
+                    // while the async onstop handler saves the file in the background.
+                    updateUIForRecording(false);
+                    // A slight delay before refreshing the gallery gives the DB time to write.
+                    setTimeout(populateGallery, 500); 
                 }
                 
                 return { start, switchCamera, startRecording, stopRecording };
             })();
 
-            // =========================================================================
-            // UI & Event Handling Module (largely unchanged, but now more robust)
-            // =========================================================================
-            function setupEventListeners() { /* ... unchanged ... */
-                DOM.recordButton.addEventListener('click', () => { APP_STATE.isRecording ? cameraController.stopRecording() : cameraController.startRecording(); });
+            function setupEventListeners() {
+                DOM.recordButton.addEventListener('click', () => { 
+                    APP_STATE.isRecording ? cameraController.stopRecording() : cameraController.startRecording(); 
+                });
                 DOM.switchCameraButton.addEventListener('click', cameraController.switchCamera);
                 DOM.logToggleButton.addEventListener('click', toggleLogMode);
                 DOM.galleryButton.addEventListener('click', openGallery);
                 DOM.closeGalleryButton.addEventListener('click', closeGallery);
                 DOM.closePlayerButton.addEventListener('click', closeVideoPlayer);
             }
-            function updateUIForRecording(isRecording) { /* ... unchanged ... */
+
+            function updateUIForRecording(isRecording) {
                 APP_STATE.isRecording = isRecording;
                 DOM.recordButton.classList.toggle('recording', isRecording);
                 DOM.recIndicator.classList.toggle('recording', isRecording);
             }
-            function toggleLogMode() { /* ... unchanged ... */
+
+            function toggleLogMode() {
                 APP_STATE.isLogEnabled = !APP_STATE.isLogEnabled;
                 DOM.logStatus.classList.toggle('active', APP_STATE.isLogEnabled);
                 DOM.logToggleButton.style.backgroundColor = APP_STATE.isLogEnabled ? 'var(--accent-color)' : 'rgba(0,0,0,0.3)';
             }
-            async function populateGallery() { /* ... unchanged, but now handles mp4/webm blobs transparently ... */ 
+
+            async function populateGallery() { /* ... unchanged ... */ 
                 const videos = await astraDB.getAllVideos();
                 DOM.galleryGrid.innerHTML = '';
-                const noRecordingsMsg = document.getElementById('no-recordings-message');
-                if (videos.length === 0) { if (!noRecordingsMsg) { DOM.galleryGrid.innerHTML = '<p id="no-recordings-message">No recordings yet.</p>'; } } else { if (noRecordingsMsg) noRecordingsMsg.remove(); }
+                if (videos.length === 0) {
+                    DOM.galleryGrid.innerHTML = '<p id="no-recordings-message">No recordings yet. Create something monumental.</p>';
+                    return;
+                }
                 videos.forEach(videoData => {
                     const url = URL.createObjectURL(videoData.blob);
                     const item = document.createElement('div');
@@ -746,7 +577,7 @@
                     videoEl.preload = 'metadata';
                     const info = document.createElement('div');
                     info.className = 'video-info';
-                    info.textContent = `${new Date(videoData.timestamp).toLocaleString()} - ${(videoData.size / 1024 / 1024).toFixed(2)} MB`;
+                    info.textContent = `${new Date(videoData.timestamp).toLocaleDateString()} - ${(videoData.size / 1024 / 1024).toFixed(2)} MB`;
                     const deleteBtn = document.createElement('button');
                     deleteBtn.className = 'delete-button';
                     deleteBtn.innerHTML = '&times;';
@@ -758,29 +589,21 @@
                     DOM.galleryGrid.appendChild(item);
                 });
             }
+
             function openGallery() { populateGallery(); DOM.galleryModal.classList.add('open'); }
             function closeGallery() { DOM.galleryModal.classList.remove('open'); }
             function playVideoInModal(url) { DOM.galleryVideoPlayer.src = url; DOM.videoPlayerModal.style.display = 'flex'; DOM.galleryVideoPlayer.play(); }
             function closeVideoPlayer() { DOM.galleryVideoPlayer.pause(); DOM.galleryVideoPlayer.src = ''; DOM.videoPlayerModal.style.display = 'none'; }
             
-            // =========================================================================
-            // Initialization Sequence: The Genesis. Now more intelligent.
-            // =========================================================================
             async function main() {
                 setupEventListeners();
-                
-                // [FIX] Determine the supported recording format ONCE at startup.
-                // This is a critical step for cross-platform compatibility.
                 APP_STATE.supportedMimeType = Utils.findSupportedMimeType();
-
                 DOM.loadingText.textContent = 'Initializing storage system...';
                 await astraDB.init();
-                
                 DOM.loadingText.textContent = 'Initializing WebGL pipeline...';
                 if (!webGLRenderer.init()) return;
-                
                 await cameraController.start();
-                webGLRenderer.render(); // Start the render loop
+                webGLRenderer.render();
             }
 
             main();
