@@ -118,7 +118,7 @@
         }
         
         #video-element {
-            display: none; /* The raw feed is hidden, processing happens on canvas */
+            display: none;
         }
         
         /* [4] === HEADS-UP DISPLAY (HUD) & OVERLAYS === */
@@ -268,6 +268,7 @@
             display: flex;
             justify-content: center;
             align-items: center;
+            gap: 3rem; /* Space for the new button */
             background: linear-gradient(to top, rgba(0,0,0,0.6), transparent);
             pointer-events: all;
         }
@@ -299,6 +300,32 @@
             border-radius: 15%;
             transform: scale(0.8);
         }
+
+        /* NEW: Switch Camera Button */
+        #switch-camera-button {
+            width: 50px;
+            height: 50px;
+            background: var(--color-primary-medium);
+            border: 2px solid var(--color-text-secondary);
+            border-radius: 50%;
+            cursor: pointer;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            transition: all var(--transition-speed) ease;
+        }
+        #switch-camera-button:hover {
+            border-color: var(--color-accent);
+        }
+        #switch-camera-button svg {
+            width: 24px;
+            height: 24px;
+            fill: var(--color-text-primary);
+            transition: fill var(--transition-speed) ease;
+        }
+        #switch-camera-button:hover svg {
+            fill: var(--color-accent);
+        }
         
         /* [5] === MODAL / DIALOGS === */
         #permission-dialog, #download-dialog {
@@ -308,14 +335,13 @@
             width: 100%;
             height: 100%;
             background: rgba(0,0,0,0.8);
-            /* Z-INDEX CORRECTION: Ensure dialogs are on top of the splash screen */
             z-index: 10001; 
             display: flex;
             justify-content: center;
             align-items: center;
             padding: 2rem;
-            display: none; /* Initially hidden */
-            opacity: 0; /* Control visibility with GSAP for smooth transitions */
+            display: none;
+            opacity: 0;
         }
         .dialog-content {
             background: var(--color-primary-dark);
@@ -364,30 +390,21 @@
             padding: 0.8rem;
             display: block;
         }
-
     </style>
 </head>
 <body>
-
-    <!-- Splash Screen: The grand entrance, setting the professional tone -->
     <div id="splash-screen">
         <div id="splash-logo">CINE-LOG<span>.WEB</span></div>
-        <div id="progress-bar-container">
-            <div id="progress-bar"></div>
-        </div>
+        <div id="progress-bar-container"><div id="progress-bar"></div></div>
         <div id="splash-status">INITIALIZING KERNEL</div>
     </div>
 
-    <!-- Main Application Container: The heart of the instrument -->
     <div id="app-container">
         <video id="video-element" playsinline autoplay muted></video>
         <canvas id="video-viewfinder"></canvas>
         <div class="hud">
             <div id="status-bar" class="hud-element">
-                <div id="rec-indicator">
-                    <div class="dot"></div>
-                    <span>STANDBY</span>
-                </div>
+                <div id="rec-indicator"><div class="dot"></div><span>STANDBY</span></div>
                 <div id="timecode">00:00:00:00</div>
                 <div id="battery-status">BATT --%</div>
             </div>
@@ -419,33 +436,31 @@
                         <option value="480p">640x480</option>
                     </select>
                 </div>
-                 <div class="control-group">
-                    <label>POST-LUT</label>
-                    <p style="font-size: 1rem; color: var(--color-text-secondary);">Rec.709 LUT not applied. Recording clean LOG signal.</p>
-                </div>
             </div>
             <div id="action-bar" class="hud-element">
-                <div id="record-button">
-                    <div class="inner-circle"></div>
+                <!-- The new switch camera button, a testament to foresight -->
+                <div id="switch-camera-button">
+                    <svg viewBox="0 0 24 24"><path d="M19.8 12c0-3.92-2.9-7.14-6.68-7.43L12 3V1h-1v2.03C7.1 3.32 4.2 6.54 4.2 10.46V12H2v8h20v-8h-2.2zM8 18H6v-4h2v4zm4 0h-2v-4h2v4zm4 0h-2v-4h2v4zm3.5-12.28C17.63 4.6 15.43 4 13 4s-4.63.6-6.5 1.72V1H5v5h14V1h-1.5v4.72z"/></svg>
                 </div>
+                <div id="record-button"><div class="inner-circle"></div></div>
+                <!-- Placeholder for future controls -->
+                <div style="width: 50px; height: 50px;"></div>
             </div>
         </div>
     </div>
     
-    <!-- Permission Dialog -->
     <div id="permission-dialog">
         <div class="dialog-content">
             <h2>ACCESS REQUIRED</h2>
-            <p>CINE-LOG.WEB requires access to your device's camera to initiate the real-time processing pipeline. Your data is processed entirely on-device and is never uploaded.</p>
+            <p>CINE-LOG.WEB requires access to your device's camera to initiate the real-time processing pipeline.</p>
             <button id="grant-permission-button" class="dialog-button">GRANT ACCESS</button>
         </div>
     </div>
 
-    <!-- Download Dialog -->
     <div id="download-dialog">
         <div class="dialog-content">
             <h2>RECORDING COMPLETE</h2>
-            <p>Your LOG footage has been encoded. For a professional post-production workflow, download both the video file and the accompanying metadata JSON file.</p>
+            <p>Your LOG footage has been encoded. Download both the video file and the accompanying metadata JSON file.</p>
             <div id="download-links"></div>
             <button id="close-download-button" class="dialog-button">CLOSE</button>
         </div>
@@ -475,6 +490,7 @@
                 },
                 controls: {
                     recordButton: document.getElementById('record-button'),
+                    switchCameraButton: document.getElementById('switch-camera-button'), // New control
                     logProfile: document.getElementById('log-profile-select'),
                     resolution: document.getElementById('resolution-select')
                 },
@@ -494,7 +510,8 @@
                 recordedChunks: [],
                 recordingStartTime: 0,
                 animationFrameId: null,
-                currentLogProfile: 'weblog'
+                currentLogProfile: 'weblog',
+                currentFacingMode: 'environment' // CRITICAL: Default to rear camera
             },
             
             logProfiles: {
@@ -504,13 +521,8 @@
                 'linear': { name: 'LINEAR (No LOG)', a: 1, b: 0 }
             },
             
-            contexts: {
-                viewfinder: null,
-                histogram: null,
-                waveform: null,
-            },
+            contexts: { viewfinder: null, histogram: null, waveform: null },
 
-            // --- [PHASE 1: INITIALIZATION] ---
             init() {
                 this.bootSequence();
                 this.setupEventListeners();
@@ -519,24 +531,10 @@
             },
 
             bootSequence() {
-                const statusUpdates = [
-                    "MOUNTING VFS...",
-                    "LOADING COLOR SCIENCE MODULES...",
-                    "CALIBRATING SENSORS...",
-                    "AWAITING USER PERMISSION..."
-                ];
-
-                // RE-ARCHITECTED BOOT TIMELINE
+                const statusUpdates = ["MOUNTING VFS...", "LOADING COLOR SCIENCE...", "CALIBRATING SENSORS...", "AWAITING PERMISSION..."];
                 const tl = gsap.timeline({
                     onComplete: () => {
-                        // This callback executes only after the entire animation is finished.
-                        // It fades out the boot text and fades in the permission dialog,
-                        // ensuring a clean, logical, and visible transition.
-                        gsap.to([this.nodes.splash.logo, this.nodes.splash.progressBarContainer], {
-                            duration: 0.5, opacity: 0, ease: 'power2.in'
-                        });
-                        
-                        // Use GSAP to control the dialog's appearance for a smooth fade-in.
+                        gsap.to([this.nodes.splash.logo, this.nodes.splash.progressBarContainer], { duration: 0.5, opacity: 0, ease: 'power2.in' });
                         gsap.set(this.nodes.dialogs.permission, { display: 'flex' });
                         gsap.to(this.nodes.dialogs.permission, { duration: 1, opacity: 1, ease: 'power2.out' });
                     }
@@ -558,6 +556,7 @@
             setupEventListeners() {
                 this.nodes.dialogs.permissionButton.addEventListener('click', () => this.requestCameraPermission());
                 this.nodes.controls.recordButton.addEventListener('click', () => this.toggleRecording());
+                this.nodes.controls.switchCameraButton.addEventListener('click', () => this.switchCamera());
                 this.nodes.controls.logProfile.addEventListener('change', (e) => this.state.currentLogProfile = e.target.value);
                 this.nodes.controls.resolution.addEventListener('change', () => this.restartStream());
                 this.nodes.dialogs.closeDownloadButton.addEventListener('click', () => {
@@ -567,13 +566,24 @@
                 });
             },
 
-            // --- [PHASE 2: CAMERA & STREAM MANAGEMENT] ---
+            async getCameraStream() {
+                const resolution = this.getResolution();
+                // THE CORE CORRECTION: Explicitly request the desired camera.
+                const constraints = {
+                    video: {
+                        width: { ideal: resolution.width },
+                        height: { ideal: resolution.height },
+                        facingMode: { ideal: this.state.currentFacingMode },
+                        frameRate: { ideal: 30 }
+                    },
+                    audio: true
+                };
+                return navigator.mediaDevices.getUserMedia(constraints);
+            },
+            
             async requestCameraPermission() {
-                // Provide immediate feedback by hiding the dialog and updating the status.
                 gsap.to(this.nodes.dialogs.permission, { 
-                    duration: 0.5, 
-                    opacity: 0, 
-                    ease: 'power2.in',
+                    duration: 0.5, opacity: 0, ease: 'power2.in',
                     onComplete: () => this.nodes.dialogs.permission.style.display = 'none' 
                 });
                 
@@ -581,25 +591,11 @@
                 gsap.fromTo(this.nodes.splash.status, { opacity: 0 }, { opacity: 1, duration: 0.5 });
                 
                 try {
-                    const resolution = this.getResolution();
-                    const constraints = {
-                        video: {
-                            width: { ideal: resolution.width },
-                            height: { ideal: resolution.height },
-                            frameRate: { ideal: 30 }
-                        },
-                        audio: true
-                    };
-
-                    this.state.stream = await navigator.mediaDevices.getUserMedia(constraints);
+                    this.state.stream = await this.getCameraStream();
                     this.nodes.video.srcObject = this.state.stream;
-                    // The 'onloadedmetadata' event is the true signal that the stream is ready for processing.
-                    this.nodes.video.onloadedmetadata = () => {
-                        this.startSystem();
-                    };
+                    this.nodes.video.onloadedmetadata = () => this.startSystem();
                 } catch (err) {
                     console.error("Monumental Error: Camera access denied or unavailable.", err);
-                    // CRITICAL: Provide clear error feedback to the user.
                     this.nodes.splash.status.textContent = 'CAMERA ACCESS DENIED. REFRESH & ALLOW.';
                     gsap.to(this.nodes.splash.status, { color: 'var(--color-accent-danger)' });
                 }
@@ -612,26 +608,23 @@
                 return { width: 1280, height: 720 };
             },
 
+            // New function for toggling camera
+            switchCamera() {
+                this.state.currentFacingMode = this.state.currentFacingMode === 'user' ? 'environment' : 'user';
+                this.restartStream();
+            },
+
             async restartStream() {
+                if (this.state.isRecording) return; // Prevent switching while recording
                 this.stopProcessingLoop();
                 if (this.state.stream) {
                     this.state.stream.getTracks().forEach(track => track.stop());
                 }
-                // We don't need to ask for permission again, just get a new stream with new constraints
+                
                 try {
-                     const resolution = this.getResolution();
-                     const constraints = {
-                        video: {
-                            width: { ideal: resolution.width },
-                            height: { ideal: resolution.height },
-                            frameRate: { ideal: 30 }
-                        },
-                        audio: true
-                    };
-                    this.state.stream = await navigator.mediaDevices.getUserMedia(constraints);
+                    this.state.stream = await this.getCameraStream();
                     this.nodes.video.srcObject = this.state.stream;
                     this.nodes.video.onloadedmetadata = () => {
-                        // Re-initialize the processing parts without the full boot sequence
                         this.nodes.viewfinder.width = this.nodes.video.videoWidth;
                         this.nodes.viewfinder.height = this.nodes.video.videoHeight;
                         this.contexts.viewfinder = this.nodes.viewfinder.getContext('2d', { willReadFrequently: true });
@@ -641,17 +634,14 @@
                     };
                 } catch(err) {
                     console.error("Failed to restart stream:", err);
+                    alert("Failed to switch camera. The requested camera may not be available at this resolution.");
                 }
             },
             
-            // --- [PHASE 3: SYSTEM START & PROCESSING CORE] ---
             startSystem() {
-                // This is the final, glorious transition from splash to application.
                 const tl = gsap.timeline();
                 tl.to(this.nodes.splash.screen, { 
-                    opacity: 0, 
-                    duration: 1, 
-                    ease: 'power2.inOut',
+                    opacity: 0, duration: 1, ease: 'power2.inOut',
                     onComplete: () => this.nodes.splash.screen.style.display = 'none' 
                 })
                   .set(this.nodes.app, { visibility: 'visible', opacity: 0 })
@@ -681,7 +671,6 @@
                     if (!this.state.stream || this.nodes.video.paused || this.nodes.video.ended) return;
                     
                     this.contexts.viewfinder.drawImage(this.nodes.video, 0, 0, this.nodes.viewfinder.width, this.nodes.viewfinder.height);
-                    
                     const imageData = this.contexts.viewfinder.getImageData(0, 0, this.nodes.viewfinder.width, this.nodes.viewfinder.height);
                     const profile = this.logProfiles[this.state.currentLogProfile];
 
@@ -693,7 +682,6 @@
                     this.updateScopes(imageData.data);
                     
                     if (this.state.isRecording) this.updateTimecode();
-
                     this.state.animationFrameId = requestAnimationFrame(loop);
                 };
                 this.state.animationFrameId = requestAnimationFrame(loop);
@@ -708,27 +696,17 @@
 
             applyLogTransform(data, a, b) {
                 for (let i = 0; i < data.length; i += 4) {
-                    const r_lin = data[i] / 255;
-                    const g_lin = data[i + 1] / 255;
-                    const b_lin = data[i + 2] / 255;
-
-                    const r_log = a * Math.log10(b * r_lin + 1.0);
-                    const g_log = a * Math.log10(b * g_lin + 1.0);
-                    const b_log = a * Math.log10(b * b_lin + 1.0);
-
-                    data[i] = r_log * 255;
-                    data[i + 1] = g_log * 255;
-                    data[i + 2] = b_log * 255;
+                    const r_lin = data[i] / 255; const g_lin = data[i + 1] / 255; const b_lin = data[i + 2] / 255;
+                    const r_log = a * Math.log10(b * r_lin + 1.0); const g_log = a * Math.log10(b * g_lin + 1.0); const b_log = a * Math.log10(b * b_lin + 1.0);
+                    data[i] = r_log * 255; data[i + 1] = g_log * 255; data[i + 2] = b_log * 255;
                 }
             },
             
-            // --- [PHASE 4: REAL-TIME ANALYSIS] ---
             updateScopes(data) {
                 const lumaValues = new Uint8ClampedArray(data.length / 4);
                 for (let i = 0, j = 0; i < data.length; i += 4, j++) {
                     lumaValues[j] = 0.2126 * data[i] + 0.7152 * data[i + 1] + 0.0722 * data[i + 2];
                 }
-
                 this.drawHistogram(lumaValues);
                 this.drawWaveform(lumaValues);
             },
@@ -736,19 +714,11 @@
             drawHistogram(lumaValues) {
                 const ctx = this.contexts.histogram;
                 const bins = new Uint32Array(256).fill(0);
-                
-                for (let i = 0; i < lumaValues.length; i++) {
-                    bins[lumaValues[i]]++;
-                }
-                
+                for (let i = 0; i < lumaValues.length; i++) { bins[lumaValues[i]]++; }
                 let maxBin = 0;
-                for (let i = 0; i < 256; i++) {
-                    if (bins[i] > maxBin) maxBin = bins[i];
-                }
-
+                for (let i = 0; i < 256; i++) { if (bins[i] > maxBin) maxBin = bins[i]; }
                 ctx.clearRect(0, 0, ctx.canvas.width, ctx.canvas.height);
                 ctx.fillStyle = `rgba(0, 255, 255, 0.7)`;
-                
                 for (let i = 0; i < 256; i++) {
                     const height = (bins[i] / maxBin) * ctx.canvas.height;
                     const x = (i / 256) * ctx.canvas.width;
@@ -759,22 +729,18 @@
             
             drawWaveform(lumaValues) {
                 const ctx = this.contexts.waveform;
-                const width = this.nodes.viewfinder.width;
-                const height = this.nodes.viewfinder.height;
-
+                const width = this.nodes.viewfinder.width; const height = this.nodes.viewfinder.height;
                 ctx.clearRect(0, 0, ctx.canvas.width, ctx.canvas.height);
                 const densityData = new Uint8ClampedArray(ctx.canvas.width * ctx.canvas.height).fill(0);
-
                 for (let y = 0; y < height; y++) {
                     for (let x = 0; x < width; x++) {
                         const luma = lumaValues[y * width + x];
                         const waveformX = Math.floor((x / width) * ctx.canvas.width);
                         const waveformY = Math.floor(ctx.canvas.height - 1 - (luma / 255) * (ctx.canvas.height-1));
                         const index = waveformY * ctx.canvas.width + waveformX;
-                        if(densityData[index] < 255) densityData[index] += 4; // Increased intensity
+                        if(densityData[index] < 255) densityData[index] += 4;
                     }
                 }
-                
                 const imgData = ctx.createImageData(ctx.canvas.width, ctx.canvas.height);
                 for(let i=0; i < densityData.length; i++) {
                     const density = densityData[i];
@@ -789,32 +755,15 @@
                 ctx.putImageData(imgData, 0, 0);
             },
 
-            // --- [PHASE 5: RECORDING & METADATA] ---
             setupMediaRecorder() {
                 const canvasStream = this.nodes.viewfinder.captureStream(30);
-                
                 const audioTracks = this.state.stream.getAudioTracks();
-                if (audioTracks.length > 0) {
-                    canvasStream.addTrack(audioTracks[0]);
-                }
-                
+                if (audioTracks.length > 0) { canvasStream.addTrack(audioTracks[0]); }
                 let options = { mimeType: 'video/webm; codecs=vp9' };
-                if (!MediaRecorder.isTypeSupported(options.mimeType)) {
-                   console.log(options.mimeType + ' is not supported! Using vp8.');
-                   options = { mimeType: 'video/webm; codecs=vp8' };
-                }
-
+                if (!MediaRecorder.isTypeSupported(options.mimeType)) { options = { mimeType: 'video/webm; codecs=vp8' }; }
                 this.state.mediaRecorder = new MediaRecorder(canvasStream, options);
-
-                this.state.mediaRecorder.ondataavailable = (event) => {
-                    if (event.data.size > 0) {
-                        this.state.recordedChunks.push(event.data);
-                    }
-                };
-                
-                this.state.mediaRecorder.onstop = () => {
-                    this.createDownloadables();
-                };
+                this.state.mediaRecorder.ondataavailable = (event) => { if (event.data.size > 0) this.state.recordedChunks.push(event.data); };
+                this.state.mediaRecorder.onstop = () => this.createDownloadables();
             },
 
             toggleRecording() {
@@ -838,42 +787,33 @@
             createDownloadables() {
                 const videoBlob = new Blob(this.state.recordedChunks, { type: 'video/webm' });
                 const videoUrl = URL.createObjectURL(videoBlob);
-                
                 const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
                 const videoFilename = `CINE-LOG_${timestamp}.webm`;
                 const metaFilename = `CINE-LOG_${timestamp}_meta.json`;
-
                 const metadata = {
                     timestamp_utc: new Date().toISOString(),
                     log_profile: this.logProfiles[this.state.currentLogProfile],
-                    resolution: {
-                        width: this.nodes.viewfinder.width,
-                        height: this.nodes.viewfinder.height
-                    },
+                    resolution: { width: this.nodes.viewfinder.width, height: this.nodes.viewfinder.height },
                     engine: "CINE-LOG.WEB v1.0",
-                    notes: "This metadata file is crucial for color grading. Use the 'log_profile' parameters to correctly invert the LOG curve into a linear color space before applying a creative LUT."
+                    notes: "Crucial for post-production. Use 'log_profile' parameters to invert the LOG curve to linear space before grading."
                 };
-                
                 const metaBlob = new Blob([JSON.stringify(metadata, null, 2)], { type: 'application/json' });
                 const metaUrl = URL.createObjectURL(metaBlob);
-
                 this.nodes.dialogs.downloadLinks.innerHTML = `
                     <a href="${videoUrl}" download="${videoFilename}">DOWNLOAD VIDEO (.webm)</a>
-                    <a href="${metaUrl}" download="${metaFilename}">DOWNLOAD METADATA (.json)</a>
-                `;
+                    <a href="${metaUrl}" download="${metaFilename}">DOWNLOAD METADATA (.json)</a>`;
                 gsap.set(this.nodes.dialogs.download, { display: 'flex' });
                 gsap.to(this.nodes.dialogs.download, { opacity: 1, duration: 0.5 });
             },
 
-            // --- [PHASE 6: UTILITIES] ---
             updateTimecode() {
                 const elapsed = Date.now() - this.state.recordingStartTime;
-                const totalSeconds = Math.floor(elapsed / 1000);
-                const hours = String(Math.floor(totalSeconds / 3600)).padStart(2, '0');
-                const minutes = String(Math.floor((totalSeconds % 3600) / 60)).padStart(2, '0');
-                const seconds = String(totalSeconds % 60).padStart(2, '0');
-                const frames = String(Math.floor((elapsed % 1000) / (1000/30))).padStart(2, '0');
-                this.nodes.timecode.textContent = `${hours}:${minutes}:${seconds}:${frames}`;
+                const s = Math.floor(elapsed / 1000);
+                const h = String(Math.floor(s/3600)).padStart(2,'0');
+                const m = String(Math.floor((s%3600)/60)).padStart(2,'0');
+                const sec = String(s%60).padStart(2,'0');
+                const f = String(Math.floor((elapsed%1000)/(1000/30))).padStart(2,'0');
+                this.nodes.timecode.textContent = `${h}:${m}:${sec}:${f}`;
             },
 
             async updateBatteryStatus() {
@@ -884,9 +824,7 @@
                         this.nodes.batteryStatus.textContent = `BATT ${level}%`;
                         this.nodes.batteryStatus.style.color = level < 20 ? 'var(--color-accent-danger)' : 'var(--color-text-primary)';
                     }
-                } catch (err) {
-                     this.nodes.batteryStatus.textContent = `BATT N/A`;
-                }
+                } catch (err) { this.nodes.batteryStatus.textContent = `BATT N/A`; }
             }
         };
 
