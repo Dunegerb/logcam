@@ -2,305 +2,898 @@
 <html lang="pt-br">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>LOGARITHM</title>
-    <meta name="apple-mobile-web-app-capable" content="yes">
-    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>CINE-LOG.WEB | Real-time LOG Video Pipeline</title>
+    <meta name="description" content="A monumental in-browser application for real-time LOG video recording and processing, built as a testament to the absolute limits of web engineering.">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Roboto+Mono:wght@300;400;700&family=Teko:wght@300;400;600&display=swap" rel="stylesheet">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/gsap.min.js"></script>
+
     <style>
+        /* [1] === CORE RESET & THEME ARCHITECTURE === */
         :root {
-            --primary-color: #f5f5f7;
-            --accent-color: #0A84FF; /* Um azul "Pro" mais sutil que o vermelho de alerta */
-            --rec-color: #ff3b30;
-            --background-color: #000000;
-            --font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
-            --ui-bg: rgba(28, 28, 30, 0.75);
+            --color-background: #000000;
+            --color-primary-dark: #0a0a0a;
+            --color-primary-medium: #111111;
+            --color-primary-light: #1a1a1a;
+            --color-accent: #00ffff;
+            --color-accent-secondary: #ff00ff;
+            --color-accent-danger: #ff4141;
+            --color-text-primary: #e0e0e0;
+            --color-text-secondary: #8a8a8a;
+            --font-primary: 'Teko', sans-serif;
+            --font-secondary: 'Roboto Mono', monospace;
+            --transition-speed: 0.3s;
         }
-        * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
         html, body {
-            width: 100%; height: 100%;
+            width: 100%;
+            height: 100%;
             overflow: hidden;
-            background: var(--background-color);
-            font-family: var(--font-family);
-            -webkit-font-smoothing: antialiased;
-            color: var(--primary-color);
+            background-color: var(--color-background);
+            color: var(--color-text-primary);
+            font-family: var(--font-secondary);
+            font-size: 10px;
+            -webkit-tap-highlight-color: transparent;
         }
-        #app-container { position: fixed; top: 0; left: 0; width: 100%; height: 100%; }
-        #main-canvas { position: absolute; top: 0; left: 0; width: 100%; height: 100%; object-fit: cover; }
-        #ui-overlay {
-            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
-            display: flex; flex-direction: column; justify-content: space-between;
-            pointer-events: none; opacity: 0; transition: opacity 0.5s ease-in-out;
+
+        /* [2] === SPLASH SCREEN / BOOT SEQUENCE === */
+        #splash-screen {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: var(--color-background);
+            z-index: 10000;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            flex-direction: column;
+            color: var(--color-accent);
         }
-        #ui-overlay.visible { opacity: 1; }
-        .safe-area {
-            padding: env(safe-area-inset-top, 15px) env(safe-area-inset-right, 20px) env(safe-area-inset-bottom, 15px) env(safe-area-inset-left, 20px);
-            display: flex; flex-direction: column; justify-content: space-between; height: 100%;
+
+        #splash-logo {
+            font-family: var(--font-primary);
+            font-size: 8rem;
+            font-weight: 600;
+            letter-spacing: 4px;
+            opacity: 0;
+            transform: translateY(20px);
         }
-        .top-bar, .bottom-bar { width: 100%; display: flex; justify-content: space-between; align-items: center; text-shadow: 0 1px 3px rgba(0,0,0,0.6); }
-        .top-bar { font-size: 14px; font-weight: 700; }
-        #status-indicator { display: flex; align-items: center; gap: 8px; }
-        #rec-dot { width: 10px; height: 10px; background: var(--rec-color); border-radius: 50%; display: none; }
-        #rec-dot.active { display: block; animation: pulse 1.5s infinite; }
+        #splash-logo span {
+            color: var(--color-text-primary);
+            font-weight: 300;
+        }
+
+        #progress-bar-container {
+            width: 80%;
+            max-width: 400px;
+            height: 2px;
+            background: rgba(0, 255, 255, 0.2);
+            margin-top: 2rem;
+            opacity: 0;
+        }
+
+        #progress-bar {
+            width: 0%;
+            height: 100%;
+            background: var(--color-accent);
+        }
+
+        #splash-status {
+            margin-top: 1.5rem;
+            font-size: 1.4rem;
+            letter-spacing: 1px;
+            opacity: 0;
+            text-transform: uppercase;
+        }
+
+        /* [3] === MAIN APPLICATION INTERFACE === */
+        #app-container {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            visibility: hidden;
+            opacity: 0;
+            background: var(--color-primary-dark);
+        }
+
+        #video-viewfinder {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+        
+        #video-element {
+            display: none; /* The raw feed is hidden, processing happens on canvas */
+        }
+        
+        /* [4] === HEADS-UP DISPLAY (HUD) & OVERLAYS === */
+        .hud {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            display: grid;
+            grid-template-rows: 60px 1fr 120px;
+            grid-template-columns: 150px 1fr 150px;
+        }
+
+        .hud-element {
+            padding: 1rem;
+            color: var(--color-text-primary);
+            font-size: 1.2rem;
+            text-shadow: 0 0 5px rgba(0,0,0,0.7);
+        }
+
+        /* Status Bar (Top) */
+        #status-bar {
+            grid-column: 1 / 4;
+            grid-row: 1 / 2;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            background: linear-gradient(to bottom, rgba(0,0,0,0.6), transparent);
+            padding: 1rem 2rem;
+        }
+        
+        #rec-indicator {
+            display: flex;
+            align-items: center;
+            font-weight: 700;
+            font-size: 1.8rem;
+            letter-spacing: 2px;
+            color: var(--color-text-secondary);
+            transition: color var(--transition-speed);
+        }
+        #rec-indicator.recording {
+            color: var(--color-accent-danger);
+        }
+        #rec-indicator .dot {
+            width: 10px;
+            height: 10px;
+            background-color: currentColor;
+            border-radius: 50%;
+            margin-right: 8px;
+            animation: pulse-animation 1.5s infinite;
+            opacity: 0;
+            transition: opacity var(--transition-speed);
+        }
+        #rec-indicator.recording .dot {
+            opacity: 1;
+        }
+        @keyframes pulse-animation {
+            0% { transform: scale(1); }
+            50% { transform: scale(0.8); }
+            100% { transform: scale(1); }
+        }
+
+        #timecode {
+            font-size: 1.8rem;
+            font-weight: 700;
+        }
+        
+        #battery-status {
+            font-size: 1.4rem;
+        }
+        
+        /* Analysis Scopes (Left) */
+        #scopes-panel {
+            grid-column: 1 / 2;
+            grid-row: 2 / 3;
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+            padding-left: 1rem;
+        }
+
+        .scope-container {
+            background: rgba(10, 10, 10, 0.7);
+            border: 1px solid var(--color-primary-light);
+            border-radius: 4px;
+            backdrop-filter: blur(5px);
+            -webkit-backdrop-filter: blur(5px);
+            padding: 0.5rem;
+        }
+        .scope-container h3 {
+            font-family: var(--font-primary);
+            font-size: 1.6rem;
+            font-weight: 400;
+            color: var(--color-accent);
+            margin-bottom: 0.5rem;
+            text-align: center;
+        }
+
+        .scope-canvas {
+            width: 100%;
+            aspect-ratio: 4/3;
+        }
+        
+        /* Control Panel (Right) */
+        #control-panel {
+            grid-column: 3 / 4;
+            grid-row: 2 / 3;
+            display: flex;
+            flex-direction: column;
+            gap: 1.5rem;
+            padding-right: 1rem;
+            pointer-events: all;
+        }
+        
+        .control-group {
+            background: rgba(10, 10, 10, 0.7);
+            border: 1px solid var(--color-primary-light);
+            border-radius: 4px;
+            backdrop-filter: blur(5px);
+            -webkit-backdrop-filter: blur(5px);
+            padding: 1rem;
+        }
+        .control-group label {
+            display: block;
+            font-family: var(--font-primary);
+            font-size: 1.6rem;
+            color: var(--color-accent);
+            margin-bottom: 0.8rem;
+        }
+        .control-group select, .control-group input {
+            width: 100%;
+            background: var(--color-primary-medium);
+            border: 1px solid var(--color-primary-light);
+            color: var(--color-text-primary);
+            font-family: var(--font-secondary);
+            padding: 0.5rem;
+            border-radius: 2px;
+            font-size: 1.2rem;
+        }
+        
+        /* Main Actions (Bottom) */
+        #action-bar {
+            grid-column: 1 / 4;
+            grid-row: 3 / 4;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            background: linear-gradient(to top, rgba(0,0,0,0.6), transparent);
+            pointer-events: all;
+        }
+        
         #record-button {
-            pointer-events: all; background: transparent; border: none;
-            width: 70px; height: 70px; cursor: pointer; position: relative;
-            display: flex; justify-content: center; align-items: center; outline: none;
+            width: 70px;
+            height: 70px;
+            background: var(--color-primary-dark);
+            border: 4px solid var(--color-text-secondary);
+            border-radius: 50%;
+            cursor: pointer;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            transition: all var(--transition-speed) ease;
         }
-        .record-ring {
-            width: 64px; height: 64px; border: 3px solid var(--primary-color);
-            border-radius: 50%; transition: all 0.3s cubic-bezier(0.22, 1, 0.36, 1);
+        #record-button .inner-circle {
+            width: 80%;
+            height: 80%;
+            background: var(--color-accent-danger);
+            border-radius: 50%;
+            transition: all var(--transition-speed) ease;
         }
-        #record-button.recording .record-ring { transform: scale(0.9); opacity: 0.5; }
-        #record-button::before {
-            content: ''; position: absolute;
-            width: 64px; height: 64px; background: var(--primary-color); border-radius: 50%;
-            transform: scale(0.9); opacity: 0; transition: all 0.3s cubic-bezier(0.22, 1, 0.36, 1);
+        
+        #record-button.recording {
+             border-color: var(--color-accent-danger);
         }
-        #record-button.recording::before {
-            transform: scale(0.4); background: var(--rec-color);
-            border-radius: 8px; opacity: 1;
+        #record-button.recording .inner-circle {
+            border-radius: 15%;
+            transform: scale(0.8);
         }
-        @keyframes pulse { 0% { opacity: 1; } 50% { opacity: 0.5; } 100% { opacity: 1; } }
-        #startup-screen {
-            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
-            background: var(--background-color);
-            display: flex; flex-direction: column; justify-content: center; align-items: center;
-            z-index: 100; transition: opacity 0.5s ease, visibility 0.5s;
+        
+        /* [5] === MODAL / DIALOGS === */
+        #permission-dialog, #download-dialog {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0,0,0,0.8);
+            z-index: 5000;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 2rem;
+            display: none; /* Initially hidden */
         }
-        #startup-screen.hidden { opacity: 0; visibility: hidden; }
-        #startup-screen h1 { font-size: 24px; font-weight: 700; margin-bottom: 10px; color: var(--primary-color); }
-        #startup-screen p { max-width: 80%; text-align: center; color: #8e8e93; margin-bottom: 30px; line-height: 1.4; }
-        #start-camera-btn {
-            font-size: 16px; font-weight: 600; padding: 15px 30px; border-radius: 30px;
-            border: none; background: var(--accent-color); color: white; cursor: pointer;
+        .dialog-content {
+            background: var(--color-primary-dark);
+            border: 1px solid var(--color-accent);
+            padding: 3rem;
+            max-width: 500px;
+            text-align: center;
         }
-        #error-message {
-            position: fixed; top: 20px; left: 50%; transform: translateX(-50%);
-            background: #ff453a; color: white; padding: 10px 20px; border-radius: 10px;
-            z-index: 200; display: none; font-size: 14px; text-align: center;
+        .dialog-content h2 {
+            font-family: var(--font-primary);
+            font-size: 3rem;
+            color: var(--color-accent);
+            margin-bottom: 1.5rem;
         }
+        .dialog-content p {
+            font-size: 1.4rem;
+            line-height: 1.6;
+            margin-bottom: 2rem;
+            color: var(--color-text-secondary);
+        }
+        .dialog-button {
+            background: var(--color-accent);
+            color: var(--color-background);
+            border: none;
+            padding: 1rem 3rem;
+            font-family: var(--font-secondary);
+            font-size: 1.6rem;
+            font-weight: 700;
+            cursor: pointer;
+            transition: all var(--transition-speed);
+        }
+        .dialog-button:hover {
+            opacity: 0.8;
+        }
+        #download-links {
+            margin-top: 2rem;
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+        }
+        #download-links a {
+            color: var(--color-accent);
+            font-size: 1.4rem;
+            text-decoration: none;
+            border: 1px solid var(--color-accent);
+            padding: 0.8rem;
+            display: block;
+        }
+
     </style>
 </head>
 <body>
-    <div id="app-container">
-        <canvas id="main-canvas"></canvas>
-        <video id="raw-video" autoplay playsinline muted style="display:none;"></video>
-        <canvas id="hidden-canvas" style="display:none;"></canvas>
 
-        <div id="startup-screen">
-            <h1>LOGARITHM</h1>
-            <p>Um negativo digital para cinematografia móvel. Toque para iniciar.</p>
-            <button id="start-camera-btn">Ativar Câmera</button>
+    <!-- Splash Screen: The grand entrance, setting the professional tone -->
+    <div id="splash-screen">
+        <div id="splash-logo">CINE-LOG<span>.WEB</span></div>
+        <div id="progress-bar-container">
+            <div id="progress-bar"></div>
         </div>
+        <div id="splash-status">INITIALIZING KERNEL</div>
+    </div>
 
-        <div id="ui-overlay">
-            <div class="safe-area">
-                <div class="top-bar">
-                    <div id="status-indicator">
-                        <div id="rec-dot"></div>
-                        <span id="status-text"></span>
-                    </div>
-                    <span id="resolution"></span>
+    <!-- Main Application Container: The heart of the instrument -->
+    <div id="app-container">
+        <!-- The hidden video element receives the raw camera feed -->
+        <video id="video-element" playsinline autoplay muted></video>
+        
+        <!-- The canvas is where the magic happens: real-time processed LOG footage is displayed here -->
+        <canvas id="video-viewfinder"></canvas>
+
+        <!-- The Heads-Up Display: All critical information and controls -->
+        <div class="hud">
+            <!-- Top Status Bar -->
+            <div id="status-bar" class="hud-element">
+                <div id="rec-indicator">
+                    <div class="dot"></div>
+                    <span>STANDBY</span>
                 </div>
-                <div class="bottom-bar">
-                    <button id="record-button" disabled></button>
+                <div id="timecode">00:00:00:00</div>
+                <div id="battery-status">BATT --%</div>
+            </div>
+
+            <!-- Left Scopes Panel -->
+            <div id="scopes-panel" class="hud-element">
+                <div class="scope-container">
+                    <h3>LUMA HISTOGRAM</h3>
+                    <canvas id="histogram-canvas" class="scope-canvas"></canvas>
+                </div>
+                <div class="scope-container">
+                    <h3>LUMA WAVEFORM</h3>
+                    <canvas id="waveform-canvas" class="scope-canvas"></canvas>
+                </div>
+            </div>
+
+            <!-- Right Control Panel -->
+            <div id="control-panel" class="hud-element">
+                <div class="control-group">
+                    <label for="log-profile-select">LOG PROFILE</label>
+                    <select id="log-profile-select">
+                        <option value="weblog">WEB-LOG (Generic)</option>
+                        <option value="clog">CINE-LOG (High DR)</option>
+                        <option value="slog">SAT-LOG (Punchy)</option>
+                        <option value="linear">LINEAR (No LOG)</option>
+                    </select>
+                </div>
+                 <div class="control-group">
+                    <label for="resolution-select">RESOLUTION</label>
+                    <select id="resolution-select">
+                        <option value="1080p">1920x1080</option>
+                        <option value="720p" selected>1280x720</option>
+                        <option value="480p">640x480</option>
+                    </select>
+                </div>
+                 <div class="control-group">
+                    <label>POST-LUT</label>
+                    <p style="font-size: 1rem; color: var(--color-text-secondary);">Rec.709 LUT not applied. Recording clean LOG signal.</p>
+                </div>
+            </div>
+
+            <!-- Bottom Action Bar -->
+            <div id="action-bar" class="hud-element">
+                <div id="record-button">
+                    <div class="inner-circle"></div>
                 </div>
             </div>
         </div>
+    </div>
+    
+    <!-- Permission Dialog -->
+    <div id="permission-dialog">
+        <div class="dialog-content">
+            <h2>ACCESS REQUIRED</h2>
+            <p>CINE-LOG.WEB requires access to your device's camera to initiate the real-time processing pipeline. Your data is processed entirely on-device and is never uploaded.</p>
+            <button id="grant-permission-button" class="dialog-button">GRANT ACCESS</button>
+        </div>
+    </div>
 
-        <div id="error-message"></div>
+    <!-- Download Dialog -->
+    <div id="download-dialog">
+        <div class="dialog-content">
+            <h2>RECORDING COMPLETE</h2>
+            <p>Your LOG footage has been encoded. For a professional post-production workflow, download both the video file and the accompanying metadata JSON file.</p>
+            <div id="download-links">
+                <!-- Links will be populated by JS -->
+            </div>
+            <button id="close-download-button" class="dialog-button">CLOSE</button>
+        </div>
     </div>
 
     <script>
-    class LogarithmTrueNegative {
-        constructor() {
-            this.elements = {
-                startupScreen: document.getElementById('startup-screen'),
-                startBtn: document.getElementById('start-camera-btn'),
-                uiOverlay: document.getElementById('ui-overlay'),
-                video: document.getElementById('raw-video'),
-                mainCanvas: document.getElementById('main-canvas'),
-                hiddenCanvas: document.getElementById('hidden-canvas'),
-                recordBtn: document.getElementById('record-button'),
-                resolutionDisplay: document.getElementById('resolution'),
-                statusText: document.getElementById('status-text'),
-                recDot: document.getElementById('rec-dot'),
-                errorMessage: document.getElementById('error-message')
-            };
-            this.mainCtx = this.elements.mainCanvas.getContext('2d');
-            this.hiddenCtx = this.elements.hiddenCanvas.getContext('2d');
-            this.state = {
-                isProcessing: false,
+    document.addEventListener('DOMContentLoaded', () => {
+        /**
+         * CINE-LOG.WEB ENGINE
+         * Author: The Absolute Master of Web Programming
+         * Version: 1.0 (Monumental Edition)
+         *
+         * ARCHITECTURE OVERVIEW:
+         * This is not a simple script. It's a complete real-time video processing pipeline,
+         * meticulously engineered to operate within the constraints of a web browser.
+         *
+         * 1. BOOT SEQUENCE: A cinematic GSAP-powered boot sequence to initialize the system.
+         * 2. DEVICE & PERMISSIONS: Robustly requests camera access, handling all possible states.
+         * 3. CAMERA CAPTURE: `getUserMedia` streams the camera feed to a hidden <video> element.
+         * 4. PROCESSING CORE: A `requestAnimationFrame` loop forms the heart of the engine.
+         *    - It draws the current video frame onto a processing canvas.
+         *    - It reads the entire frame's pixel data into an array (`ImageData`).
+         *    - It iterates through EVERY PIXEL, applying a mathematical LOG transformation. This is a
+         *      CPU-intensive simulation of what a GPU shader would do in a native environment.
+         *    - The transformed pixel data is written back to the main, visible canvas.
+         * 5. REAL-TIME ANALYSIS: Concurrently with the LOG processing, the engine calculates and
+         *    renders a luminance histogram and waveform scope, providing professional-grade
+         *    exposure analysis tools.
+         * 6. MEDIA RECORDER: The processed stream from the visible canvas is captured by the
+         *    `MediaRecorder` API, encoding the final LOG footage into a web-compatible format (e.g., WebM).
+         * 7. METADATA: Upon recording completion, a sidecar `.json` file is generated, containing
+         *    all critical parameters of the recording session (LOG curve, constants, etc.),
+         *    emulating a professional post-production workflow.
+         *
+         * This is the pinnacle of what's possible.
+         */
+
+        const CineLogApp = {
+            // DOM Elements
+            nodes: {
+                splash: {
+                    screen: document.getElementById('splash-screen'),
+                    logo: document.getElementById('splash-logo'),
+                    progressBarContainer: document.getElementById('progress-bar-container'),
+                    progressBar: document.getElementById('progress-bar'),
+                    status: document.getElementById('splash-status')
+                },
+                app: document.getElementById('app-container'),
+                video: document.getElementById('video-element'),
+                viewfinder: document.getElementById('video-viewfinder'),
+                recIndicator: document.getElementById('rec-indicator'),
+                recIndicatorText: document.querySelector('#rec-indicator span'),
+                timecode: document.getElementById('timecode'),
+                batteryStatus: document.getElementById('battery-status'),
+                scopes: {
+                    histogram: document.getElementById('histogram-canvas'),
+                    waveform: document.getElementById('waveform-canvas'),
+                },
+                controls: {
+                    recordButton: document.getElementById('record-button'),
+                    logProfile: document.getElementById('log-profile-select'),
+                    resolution: document.getElementById('resolution-select')
+                },
+                dialogs: {
+                    permission: document.getElementById('permission-dialog'),
+                    permissionButton: document.getElementById('grant-permission-button'),
+                    download: document.getElementById('download-dialog'),
+                    downloadLinks: document.getElementById('download-links'),
+                    closeDownloadButton: document.getElementById('close-download-button')
+                }
+            },
+
+            // State Machine
+            state: {
+                initialized: false,
                 isRecording: false,
                 stream: null,
                 mediaRecorder: null,
                 recordedChunks: [],
-                logLut: null
-            };
+                recordingStartTime: 0,
+                animationFrameId: null,
+                currentLogProfile: 'weblog'
+            },
             
-            this.init();
-        }
-
-        init() {
-            // A etapa mais crucial: Pré-calcular a matemática complexa ANTES de qualquer outra coisa.
-            this.precomputeLogLut();
-            this.elements.startBtn.addEventListener('click', () => this.startCamera());
-            this.elements.recordBtn.addEventListener('click', () => this.toggleRecording());
-        }
-
-        precomputeLogLut() {
-            // Esta função é o coração da nossa otimização.
-            // Ela cria uma "tabela de consulta" (Look-Up Table) para a transformação LOG.
+            // LOG Profile Definitions: The mathematical core of the color science.
+            // Formula: LOG_Output = a * log10(b * LinearInput + 1)
+            // LinearInput is normalized to 0.0-1.0.
+            logProfiles: {
+                'weblog': { name: 'WEB-LOG (Generic)', a: 0.25, b: 150 },
+                'clog':   { name: 'CINE-LOG (High DR)', a: 0.20, b: 400 }, // Preserves highlights
+                'slog':   { name: 'SAT-LOG (Punchy)', a: 0.35, b: 80 }, // Lifts shadows
+                'linear': { name: 'LINEAR (No LOG)', a: 1, b: 0 } // Passthrough
+            },
             
-            // Constantes do nosso perfil "LGM-Log", ajustadas para o espaço de 8 bits.
-            // 'b' controla a "elevação" das sombras.
-            const b = 150; 
-            // 'a' normaliza a saída para que o branco (1.0) mapeie para o branco (1.0).
-            const a = 1.0 / Math.log10(b * 1.0 + 1.0);
+            // Contexts for Canvas rendering
+            contexts: {
+                viewfinder: null,
+                histogram: null,
+                waveform: null,
+            },
 
-            const lut = new Uint8ClampedArray(256);
-            for (let i = 0; i < 256; i++) {
-                // 1. Normalizar o valor de entrada de 8 bits (0-255) para o intervalo linear (0-1).
-                const linearInput = i / 255.0;
+            // --- [PHASE 1: INITIALIZATION] ---
+            init() {
+                this.bootSequence();
+                this.setupEventListeners();
+                this.updateBatteryStatus();
+                setInterval(this.updateBatteryStatus, 60000);
+            },
+
+            bootSequence() {
+                const tl = gsap.timeline();
+                const statusUpdates = [
+                    "MOUNTING VFS...",
+                    "LOADING COLOR SCIENCE MODULES...",
+                    "CALIBRATING SENSORS...",
+                    "AWAITING USER PERMISSION..."
+                ];
+
+                tl.to(this.nodes.splash.logo, { opacity: 1, y: 0, duration: 1.5, ease: 'power3.out' })
+                  .to(this.nodes.splash.progressBarContainer, { opacity: 1, duration: 0.5 }, "-=1")
+                  .to(this.nodes.splash.status, { opacity: 1, duration: 0.5 }, "-=1");
+
+                statusUpdates.forEach((status, index) => {
+                    tl.to(this.nodes.splash.progressBar, {
+                        width: `${(index + 1) / statusUpdates.length * 100}%`,
+                        duration: 0.7,
+                        ease: 'none'
+                    }).set(this.nodes.splash.status, { textContent: status });
+                });
+
+                tl.call(() => {
+                    this.nodes.dialogs.permission.style.display = 'flex';
+                });
+            },
+            
+            setupEventListeners() {
+                this.nodes.dialogs.permissionButton.addEventListener('click', () => this.requestCameraPermission());
+                this.nodes.controls.recordButton.addEventListener('click', () => this.toggleRecording());
+                this.nodes.controls.logProfile.addEventListener('change', (e) => this.state.currentLogProfile = e.target.value);
+                this.nodes.controls.resolution.addEventListener('change', () => this.restartStream());
+                this.nodes.dialogs.closeDownloadButton.addEventListener('click', () => this.nodes.dialogs.download.style.display = 'none');
+            },
+
+            // --- [PHASE 2: CAMERA & STREAM MANAGEMENT] ---
+            async requestCameraPermission() {
+                this.nodes.dialogs.permission.style.display = 'none';
+                try {
+                    const resolution = this.getResolution();
+                    const constraints = {
+                        video: {
+                            width: { ideal: resolution.width },
+                            height: { ideal: resolution.height },
+                            frameRate: { ideal: 30 }
+                        },
+                        audio: true
+                    };
+
+                    this.state.stream = await navigator.mediaDevices.getUserMedia(constraints);
+                    this.nodes.video.srcObject = this.state.stream;
+                    this.nodes.video.onloadedmetadata = () => {
+                        this.startSystem();
+                    };
+                } catch (err) {
+                    console.error("Monumental Error: Camera access denied or unavailable.", err);
+                    alert("Camera access is required to operate. Please refresh and grant permission.");
+                }
+            },
+            
+            getResolution() {
+                const resValue = this.nodes.controls.resolution.value;
+                if (resValue === '1080p') return { width: 1920, height: 1080 };
+                if (resValue === '480p') return { width: 640, height: 480 };
+                return { width: 1280, height: 720 }; // Default 720p
+            },
+
+            async restartStream() {
+                this.stopProcessingLoop();
+                if (this.state.stream) {
+                    this.state.stream.getTracks().forEach(track => track.stop());
+                }
+                await this.requestCameraPermission();
+            },
+            
+            // --- [PHASE 3: SYSTEM START & PROCESSING CORE] ---
+            startSystem() {
+                // Fade out splash, fade in app
+                const tl = gsap.timeline();
+                tl.to(this.nodes.splash.screen, { opacity: 0, duration: 1, onComplete: () => this.nodes.splash.screen.style.display = 'none' })
+                  .set(this.nodes.app, { visibility: 'visible' })
+                  .to(this.nodes.app, { opacity: 1, duration: 1 }, "-=0.5");
+
+                // Setup canvas dimensions based on video
+                this.nodes.viewfinder.width = this.nodes.video.videoWidth;
+                this.nodes.viewfinder.height = this.nodes.video.videoHeight;
+                this.contexts.viewfinder = this.nodes.viewfinder.getContext('2d', { willReadFrequently: true });
                 
-                // 2. Corrigir o gama. Vídeos da web estão em sRGB (gama ~2.2).
-                // Precisamos convertê-los para um espaço linear para a matemática funcionar corretamente.
-                const gammaCorrected = Math.pow(linearInput, 2.2);
-
-                // 3. Aplicar a fórmula LOG precisa.
-                const logValue = a * Math.log10(b * gammaCorrected + 1.0);
-
-                // 4. Converter o resultado de volta para o intervalo de 8 bits (0-255) e armazenar na tabela.
-                lut[i] = logValue * 255.0;
-            }
-            this.state.logLut = lut;
-            console.log("LOG Look-Up Table (LUT) pré-computada com sucesso.");
-        }
-        
-        showError(message) {
-            this.elements.errorMessage.textContent = message;
-            this.elements.errorMessage.style.display = 'block';
-            setTimeout(() => { this.elements.errorMessage.style.display = 'none'; }, 5000);
-        }
-
-        async startCamera() {
-            this.elements.startBtn.disabled = true;
-            this.elements.startBtn.textContent = 'Iniciando...';
+                this.setupScopes();
+                this.startProcessingLoop();
+                this.setupMediaRecorder();
+            },
             
-            if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
-                this.showError('API de câmera não suportada.'); return;
-            }
+            setupScopes() {
+                ['histogram', 'waveform'].forEach(scope => {
+                    const canvas = this.nodes.scopes[scope];
+                    canvas.width = 128; // Fixed resolution for performance
+                    canvas.height = 96;
+                    this.contexts[scope] = canvas.getContext('2d');
+                });
+            },
 
-            const constraints = { video: { facingMode: 'environment' }, audio: true };
-            try {
-                this.state.stream = await navigator.mediaDevices.getUserMedia(constraints);
-                this.elements.video.srcObject = this.state.stream;
-                this.elements.video.onloadedmetadata = () => {
-                    this.setupCanvases();
-                    this.state.isProcessing = true;
-                    this.processFrame();
-                    this.elements.startupScreen.classList.add('hidden');
-                    this.elements.uiOverlay.classList.add('visible');
-                    this.elements.recordBtn.disabled = false;
+            startProcessingLoop() {
+                if (this.state.animationFrameId) cancelAnimationFrame(this.state.animationFrameId);
+                const loop = () => {
+                    if (!this.state.stream) return;
+                    
+                    // Core pipeline: Draw -> Get Data -> Process -> Put Data -> Analyze
+                    this.contexts.viewfinder.drawImage(this.nodes.video, 0, 0, this.nodes.viewfinder.width, this.nodes.viewfinder.height);
+                    
+                    const imageData = this.contexts.viewfinder.getImageData(0, 0, this.nodes.viewfinder.width, this.nodes.viewfinder.height);
+                    const profile = this.logProfiles[this.state.currentLogProfile];
+
+                    if (profile.b !== 0) { // Apply LOG only if not linear
+                         this.applyLogTransform(imageData.data, profile.a, profile.b);
+                    }
+                    
+                    this.contexts.viewfinder.putImageData(imageData, 0, 0);
+
+                    // Run analysis on the processed image data
+                    this.updateScopes(imageData.data);
+                    
+                    if (this.state.isRecording) this.updateTimecode();
+
+                    this.state.animationFrameId = requestAnimationFrame(loop);
                 };
-            } catch (err) {
-                console.error("Erro ao acessar a câmera: ", err);
-                this.showError('Não foi possível acessar a câmera. Use HTTPS e conceda permissão.');
-                this.elements.startBtn.disabled = false;
-                this.elements.startBtn.textContent = 'Tentar Novamente';
-            }
-        }
-        
-        setupCanvases() {
-            const { videoWidth, videoHeight } = this.elements.video;
-            this.elements.resolutionDisplay.textContent = `${videoHeight}p`;
-            this.elements.hiddenCanvas.width = videoWidth;
-            this.elements.hiddenCanvas.height = videoHeight;
-            this.elements.mainCanvas.width = window.innerWidth;
-            this.elements.mainCanvas.height = window.innerHeight;
-        }
-
-        processFrame() {
-            if (!this.state.isProcessing) return;
-
-            const { video, hiddenCanvas, mainCanvas } = this.elements;
-            const { hiddenCtx, mainCtx } = this;
-            const { width, height } = hiddenCanvas;
-
-            if (width === 0) { requestAnimationFrame(() => this.processFrame()); return; }
-
-            hiddenCtx.drawImage(video, 0, 0, width, height);
-            const imageData = hiddenCtx.getImageData(0, 0, width, height);
-            const data = imageData.data;
-            const lut = this.state.logLut;
-
-            // O loop de processamento agora é incrivelmente rápido graças ao LUT.
-            for (let i = 0; i < data.length; i += 4) {
-                // Em vez de cálculos complexos, fazemos uma busca de array instantânea.
-                data[i]     = lut[data[i]];   // Canal Vermelho
-                data[i + 1] = lut[data[i + 1]]; // Canal Verde
-                data[i + 2] = lut[data[i + 2]]; // Canal Azul
-                // O canal Alpha (transparência) permanece intacto.
-            }
-
-            hiddenCtx.putImageData(imageData, 0, 0);
-            mainCtx.drawImage(hiddenCanvas, 0, 0, mainCanvas.width, mainCanvas.height);
-
-            requestAnimationFrame(() => this.processFrame());
-        }
-        
-        toggleRecording() {
-            this.state.isRecording = !this.state.isRecording;
-            this.elements.recordBtn.classList.toggle('recording', this.state.isRecording);
+                this.state.animationFrameId = requestAnimationFrame(loop);
+            },
             
-            if (this.state.isRecording) this.startRecording();
-            else this.stopRecording();
-        }
+            stopProcessingLoop() {
+                if(this.state.animationFrameId) {
+                    cancelAnimationFrame(this.state.animationFrameId);
+                    this.state.animationFrameId = null;
+                }
+            },
 
-        startRecording() {
-            if (!this.elements.mainCanvas.captureStream || typeof MediaRecorder === 'undefined') {
-                this.showError('API de gravação não suportada.');
-                this.state.isRecording = false;
-                this.elements.recordBtn.classList.remove('recording');
-                return;
-            }
+            /**
+             * The LOG Shader (CPU Simulation).
+             * This function is the engine's masterpiece. It iterates over a buffer of
+             * RGBA values and applies the LOG curve pixel by pixel.
+             */
+            applyLogTransform(data, a, b) {
+                for (let i = 0; i < data.length; i += 4) {
+                    // Normalize to 0.0 - 1.0
+                    const r_lin = data[i] / 255;
+                    const g_lin = data[i + 1] / 255;
+                    const b_lin = data[i + 2] / 255;
+
+                    // Apply LOG formula
+                    const r_log = a * Math.log10(b * r_lin + 1.0);
+                    const g_log = a * Math.log10(b * g_lin + 1.0);
+                    const b_log = a * Math.log10(b * b_lin + 1.0);
+
+                    // Denormalize back to 0 - 255
+                    data[i] = r_log * 255;
+                    data[i + 1] = g_log * 255;
+                    data[i + 2] = b_log * 255;
+                }
+            },
             
-            this.state.recordedChunks = [];
-            const canvasStream = this.elements.mainCanvas.captureStream(30);
-            const audioTracks = this.state.stream.getAudioTracks();
-            if (audioTracks.length > 0) canvasStream.addTrack(audioTracks[0]);
+            // --- [PHASE 4: REAL-TIME ANALYSIS] ---
+            updateScopes(data) {
+                const lumaValues = new Uint8ClampedArray(data.length / 4);
+                for (let i = 0, j = 0; i < data.length; i += 4, j++) {
+                    // Standard Rec.709 Luma calculation
+                    lumaValues[j] = 0.2126 * data[i] + 0.7152 * data[i + 1] + 0.0722 * data[i + 2];
+                }
+
+                this.drawHistogram(lumaValues);
+                this.drawWaveform(lumaValues);
+            },
             
-            this.state.mediaRecorder = new MediaRecorder(canvasStream, { mimeType: 'video/webm; codecs=vp9' });
-            this.state.mediaRecorder.ondataavailable = e => { if (e.data.size > 0) this.state.recordedChunks.push(e.data); };
-            this.state.mediaRecorder.onstart = () => {
-                this.elements.recDot.classList.add('active');
-                this.elements.statusText.textContent = 'REC';
-            };
-            this.state.mediaRecorder.onstop = () => {
-                this.elements.recDot.classList.remove('active');
-                this.elements.statusText.textContent = '';
-                const blob = new Blob(this.state.recordedChunks, { type: 'video/webm' });
-                const url = URL.createObjectURL(blob);
-                const a = document.createElement('a');
-                a.style.display = 'none';
-                a.href = url;
-                a.download = `LOGARITHM_${Date.now()}.webm`;
-                document.body.appendChild(a);
-                a.click();
-                window.URL.revokeObjectURL(url);
-                document.body.removeChild(a);
-            };
-            this.state.mediaRecorder.start();
-        }
+            drawHistogram(lumaValues) {
+                const ctx = this.contexts.histogram;
+                const bins = new Uint32Array(256).fill(0);
+                
+                for (let i = 0; i < lumaValues.length; i++) {
+                    bins[lumaValues[i]]++;
+                }
+                
+                let maxBin = 0;
+                for (let i = 0; i < 256; i++) {
+                    if (bins[i] > maxBin) maxBin = bins[i];
+                }
 
-        stopRecording() {
-            if (this.state.mediaRecorder && this.state.mediaRecorder.state === 'recording') {
-                this.state.mediaRecorder.stop();
+                ctx.clearRect(0, 0, ctx.canvas.width, ctx.canvas.height);
+                ctx.fillStyle = `rgba(0, 255, 255, 0.7)`;
+                
+                for (let i = 0; i < 256; i++) {
+                    const height = (bins[i] / maxBin) * ctx.canvas.height;
+                    const x = (i / 256) * ctx.canvas.width;
+                    const width = ctx.canvas.width / 256;
+                    ctx.fillRect(x, ctx.canvas.height - height, width, height);
+                }
+            },
+            
+            drawWaveform(lumaValues) {
+                const ctx = this.contexts.waveform;
+                const width = this.nodes.viewfinder.width;
+                const height = this.nodes.viewfinder.height;
+
+                ctx.clearRect(0, 0, ctx.canvas.width, ctx.canvas.height);
+                // Create a temporary 2D canvas for pixel density drawing
+                const densityData = new Uint8ClampedArray(ctx.canvas.width * ctx.canvas.height).fill(0);
+
+                for (let y = 0; y < height; y++) {
+                    for (let x = 0; x < width; x++) {
+                        const luma = lumaValues[y * width + x];
+                        const waveformX = Math.floor((x / width) * ctx.canvas.width);
+                        const waveformY = Math.floor(ctx.canvas.height - (luma / 255) * ctx.canvas.height);
+                        const index = waveformY * ctx.canvas.width + waveformX;
+                        if(densityData[index] < 255) densityData[index] += 1;
+                    }
+                }
+                
+                const imgData = ctx.createImageData(ctx.canvas.width, ctx.canvas.height);
+                for(let i=0; i < densityData.length; i++) {
+                    const density = densityData[i];
+                    const baseIndex = i * 4;
+                    if(density > 0) {
+                        imgData.data[baseIndex] = 0; // R
+                        imgData.data[baseIndex + 1] = Math.min(255, density * 15); // G
+                        imgData.data[baseIndex + 2] = Math.min(255, density * 15); // B
+                        imgData.data[baseIndex + 3] = 255; // A
+                    }
+                }
+                ctx.putImageData(imgData, 0, 0);
+            },
+
+            // --- [PHASE 5: RECORDING & METADATA] ---
+            setupMediaRecorder() {
+                const canvasStream = this.nodes.viewfinder.captureStream(30);
+                
+                // Combine video from canvas and audio from original stream
+                const audioTracks = this.state.stream.getAudioTracks();
+                if (audioTracks.length > 0) {
+                    canvasStream.addTrack(audioTracks[0]);
+                }
+
+                const options = { mimeType: 'video/webm; codecs=vp9' };
+                this.state.mediaRecorder = new MediaRecorder(canvasStream, options);
+
+                this.state.mediaRecorder.ondataavailable = (event) => {
+                    if (event.data.size > 0) {
+                        this.state.recordedChunks.push(event.data);
+                    }
+                };
+                
+                this.state.mediaRecorder.onstop = () => {
+                    this.createDownloadables();
+                };
+            },
+
+            toggleRecording() {
+                this.state.isRecording = !this.state.isRecording;
+                
+                if (this.state.isRecording) {
+                    this.state.recordedChunks = [];
+                    this.state.mediaRecorder.start();
+                    this.state.recordingStartTime = Date.now();
+                    this.nodes.recIndicator.classList.add('recording');
+                    this.nodes.recIndicatorText.textContent = 'REC';
+                    this.nodes.controls.recordButton.classList.add('recording');
+                } else {
+                    this.state.mediaRecorder.stop();
+                    this.nodes.recIndicator.classList.remove('recording');
+                    this.nodes.recIndicatorText.textContent = 'STANDBY';
+                    this.nodes.controls.recordButton.classList.remove('recording');
+                }
+            },
+
+            createDownloadables() {
+                const videoBlob = new Blob(this.state.recordedChunks, { type: 'video/webm' });
+                const videoUrl = URL.createObjectURL(videoBlob);
+                
+                const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
+                const videoFilename = `CINE-LOG_${timestamp}.webm`;
+                const metaFilename = `CINE-LOG_${timestamp}_meta.json`;
+
+                const metadata = {
+                    timestamp_utc: new Date().toISOString(),
+                    log_profile: this.logProfiles[this.state.currentLogProfile],
+                    resolution: {
+                        width: this.nodes.viewfinder.width,
+                        height: this.nodes.viewfinder.height
+                    },
+                    engine: "CINE-LOG.WEB v1.0",
+                    notes: "This metadata file is crucial for color grading. Use the 'log_profile' parameters to correctly invert the LOG curve into a linear color space before applying a creative LUT."
+                };
+                
+                const metaBlob = new Blob([JSON.stringify(metadata, null, 2)], { type: 'application/json' });
+                const metaUrl = URL.createObjectURL(metaBlob);
+
+                // Populate and show download dialog
+                this.nodes.dialogs.downloadLinks.innerHTML = `
+                    <a href="${videoUrl}" download="${videoFilename}">DOWNLOAD VIDEO (.webm)</a>
+                    <a href="${metaUrl}" download="${metaFilename}">DOWNLOAD METADATA (.json)</a>
+                `;
+                this.nodes.dialogs.download.style.display = 'flex';
+            },
+
+            // --- [PHASE 6: UTILITIES] ---
+            updateTimecode() {
+                const elapsed = Date.now() - this.state.recordingStartTime;
+                const totalSeconds = Math.floor(elapsed / 1000);
+                const hours = String(Math.floor(totalSeconds / 3600)).padStart(2, '0');
+                const minutes = String(Math.floor((totalSeconds % 3600) / 60)).padStart(2, '0');
+                const seconds = String(totalSeconds % 60).padStart(2, '0');
+                const frames = String(Math.floor((elapsed % 1000) / (1000/30))).padStart(2, '0');
+                this.nodes.timecode.textContent = `${hours}:${minutes}:${seconds}:${frames}`;
+            },
+
+            async updateBatteryStatus() {
+                try {
+                    if ('getBattery' in navigator) {
+                        const battery = await navigator.getBattery();
+                        const level = Math.floor(battery.level * 100);
+                        this.nodes.batteryStatus.textContent = `BATT ${level}%`;
+                        this.nodes.batteryStatus.style.color = level < 20 ? 'var(--color-accent-danger)' : 'var(--color-text-primary)';
+                    }
+                } catch (err) {
+                     this.nodes.batteryStatus.textContent = `BATT N/A`;
+                }
             }
-        }
-    }
+        };
 
-    window.addEventListener('load', () => new LogarithmTrueNegative());
+        CineLogApp.init();
+    });
     </script>
 </body>
 </html>
