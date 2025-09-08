@@ -2,552 +2,942 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Project Chimera: The Virtual Cinema Sensor</title>
-    
-    <!-- Dependencies embedded as a testament to self-containment -->
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.11.4/gsap.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.11.4/ScrollTrigger.min.js"></script>
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.0/dist/katex.min.css" integrity="sha384-Xi8rHCmBmhbuyyhbI88391ZKP2dmfnOl4rT9ZfRI76/y24gSepIFsB1NQog8Diab" crossorigin="anonymous">
-    <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.0/dist/katex.min.js" integrity="sha384-X/XCfMm41VSsqRNQgDerQczD69XqmjOOOwYQvr/uuC+j4oHBALzENDp+za2IZdVf" crossorigin="anonymous"></script>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <title>Project Chimera: Cinematic PWA</title>
     
     <style>
         :root {
-            --bg-color: #01020a;
-            --text-color: #cdd6f4;
-            --text-muted: #7f849c;
-            --accent-primary: #89b4fa;
-            --accent-secondary: #f38ba8;
-            --accent-tertiary: #a6e3a1;
-            --glow-color: rgba(137, 180, 250, 0.3);
-            --surface-color: rgba(30, 32, 48, 0.4);
-            --border-color: rgba(137, 180, 250, 0.1);
-            --font-main: 'Inter', 'Segoe UI', 'Roboto', sans-serif;
-            --font-mono: 'Roboto Mono', 'Fira Code', 'monospace';
+            --primary-color: #ff4757; /* A vibrant, "recording" red */
+            --secondary-color: #2f3640; /* Deep charcoal for the UI */
+            --tertiary-color: #718093; /* Muted grey for inactive elements */
+            --accent-color: #00a8ff; /* A sharp blue for highlights and LOG mode */
+            --text-color: #f5f6fa;
+            --font-family: 'SF Pro Display', 'Roboto', 'Helvetica Neue', sans-serif;
+            --transition-speed: 0.3s;
         }
 
-        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600&family=Roboto+Mono:wght@400;500&display=swap');
-
-        * {
+        /* Foundational Reset & Body Styling */
+        *, *::before, *::after {
+            box-sizing: border-box;
             margin: 0;
             padding: 0;
-            box-sizing: border-box;
+            -webkit-tap-highlight-color: transparent;
         }
 
-        html {
-            scroll-behavior: smooth;
-        }
-
-        body {
-            background-color: var(--bg-color);
+        html, body {
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+            background-color: #000;
             color: var(--text-color);
-            font-family: var(--font-main);
-            font-size: 18px;
-            line-height: 1.7;
-            overflow-x: hidden;
+            font-family: var(--font-family);
+            font-synthesis: none;
+            text-rendering: optimizeLegibility;
+            -webkit-font-smoothing: antialiased;
+            -moz-osx-font-smoothing: grayscale;
         }
 
-        #bg-canvas {
+        /* App Container: The Main Stage */
+        #app-container {
             position: fixed;
             top: 0;
             left: 0;
             width: 100%;
             height: 100%;
-            z-index: -1;
-            opacity: 0.5;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            background: #000;
         }
 
-        .cursor {
-            position: fixed;
-            width: 20px;
-            height: 20px;
-            border: 2px solid var(--accent-primary);
-            border-radius: 50%;
-            left: 0;
+        #camera-feed {
+            display: none; /* The raw, unprocessed feed is never shown to the user. It's merely a data source. */
+        }
+
+        #main-canvas {
+            position: absolute;
             top: 0;
-            pointer-events: none;
-            transform: translate(-50%, -50%);
-            transition: width 0.2s, height 0.2s, background-color 0.2s;
-            z-index: 9999;
-        }
-
-        .cursor.hover {
-            width: 40px;
-            height: 40px;
-            background-color: var(--glow-color);
-        }
-
-        #content-container {
-            position: relative;
-            z-index: 1;
+            left: 0;
             width: 100%;
-            max-width: 900px;
-            margin: 0 auto;
-            padding: 100px 40px;
+            height: 100%;
+            object-fit: cover; /* Ensures the cinematic vision fills the screen */
         }
 
-        header {
-            text-align: center;
-            margin-bottom: 20vh;
-            min-height: 80vh;
+        /* UI Overlay: The Command Deck */
+        #ui-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
             display: flex;
             flex-direction: column;
+            justify-content: space-between;
+            pointer-events: none; /* Allow clicks to pass through to canvas if needed, but controls will override */
+            z-index: 10;
+        }
+        
+        /* Top & Bottom Bars */
+        .ui-bar {
+            width: 100%;
+            padding: 15px 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            background: linear-gradient(to bottom, rgba(0,0,0,0.7), rgba(0,0,0,0));
+            pointer-events: all;
+        }
+
+        .ui-bar.bottom {
+            background: linear-gradient(to top, rgba(0,0,0,0.7), rgba(0,0,0,0));
             justify-content: center;
         }
 
-        .main-title {
-            font-size: clamp(2.5rem, 6vw, 5rem);
-            font-weight: 600;
-            color: #fff;
-            letter-spacing: -2px;
-            text-shadow: 0 0 10px var(--glow-color), 0 0 20px var(--glow-color);
-            margin-bottom: 1rem;
-        }
-
-        .subtitle {
-            font-size: clamp(1rem, 2vw, 1.25rem);
-            color: var(--accent-primary);
-            font-family: var(--font-mono);
-            letter-spacing: 1px;
-        }
-        
-        .manifesto {
-            font-size: 1.1rem;
-            color: var(--text-muted);
-            max-width: 700px;
-            margin: 2rem auto 0;
-            line-height: 1.8;
-        }
-
-        section {
-            margin-bottom: 12rem;
-            padding: 3rem;
-            border: 1px solid var(--border-color);
-            border-radius: 12px;
-            background: var(--surface-color);
-            backdrop-filter: blur(10px);
-            -webkit-backdrop-filter: blur(10px);
-            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
-            opacity: 0;
-            transform: translateY(50px);
-        }
-        
-        h2 {
-            font-size: 2.5rem;
-            font-weight: 600;
-            color: var(--accent-primary);
-            margin-bottom: 2rem;
-            line-height: 1.2;
+        /* Status Indicators: The Vitals */
+        #status-indicators {
             display: flex;
+            gap: 20px;
             align-items: center;
         }
 
-        h2 .section-number {
-            font-family: var(--font-mono);
-            font-size: 1.5rem;
-            margin-right: 1.5rem;
-            color: var(--accent-secondary);
-            border: 1px solid var(--accent-secondary);
+        .status-item {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 14px;
+            font-weight: 600;
+            letter-spacing: 0.5px;
+            text-shadow: 0 1px 3px rgba(0,0,0,0.5);
+        }
+
+        #rec-indicator {
+            color: var(--primary-color);
+            opacity: 0;
+            transition: opacity var(--transition-speed) ease;
+        }
+        #rec-indicator.recording {
+            opacity: 1;
+            animation: pulse 1.5s infinite;
+        }
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.4; }
+        }
+
+        #log-status {
+            color: var(--tertiary-color);
+            transition: color var(--transition-speed) ease;
+        }
+        #log-status.active {
+            color: var(--accent-color);
+            text-shadow: 0 0 8px var(--accent-color);
+        }
+
+        /* Controls: The Instruments of Creation */
+        #controls {
+            display: flex;
+            justify-content: space-around;
+            align-items: center;
+            width: 100%;
+            max-width: 400px;
+        }
+
+        .control-button {
+            background: none;
+            border: none;
+            color: var(--text-color);
+            cursor: pointer;
+            padding: 10px;
             border-radius: 50%;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            transition: background-color var(--transition-speed) ease, transform var(--transition-speed) ease;
+            pointer-events: all;
+        }
+        .control-button:hover {
+            background-color: rgba(255, 255, 255, 0.1);
+        }
+        .control-button:active {
+            transform: scale(0.9);
+        }
+        .control-button svg {
+            width: 28px;
+            height: 28px;
+            filter: drop-shadow(0 1px 2px rgba(0,0,0,0.5));
+        }
+
+        #record-button {
+            width: 70px;
+            height: 70px;
+            border: 4px solid var(--text-color);
+            background-color: transparent;
+            position: relative;
+        }
+        #record-button::before {
+            content: '';
+            position: absolute;
+            width: 85%;
+            height: 85%;
+            background-color: var(--primary-color);
+            border-radius: 50%;
+            transition: all var(--transition-speed) cubic-bezier(0.68, -0.55, 0.27, 1.55);
+        }
+        #record-button.recording::before {
+            width: 50%;
+            height: 50%;
+            border-radius: 10%;
+            background-color: var(--primary-color);
+        }
+        
+        /* Gallery Modal: The Vault */
+        #gallery-modal {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(10, 10, 10, 0.98);
+            backdrop-filter: blur(10px);
+            z-index: 100;
+            display: flex;
+            flex-direction: column;
+            transform: translateY(100%);
+            transition: transform 0.5s cubic-bezier(0.16, 1, 0.3, 1);
+            pointer-events: none;
+            opacity: 0;
+        }
+
+        #gallery-modal.open {
+            transform: translateY(0);
+            pointer-events: all;
+            opacity: 1;
+        }
+
+        #gallery-header {
+            padding: 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-bottom: 1px solid var(--secondary-color);
+        }
+        #gallery-header h2 {
+            font-size: 24px;
+            font-weight: 600;
+        }
+
+        #gallery-grid {
+            flex-grow: 1;
+            overflow-y: auto;
+            padding: 20px;
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+            gap: 15px;
+        }
+
+        .gallery-item {
+            aspect-ratio: 9 / 16;
+            background-color: var(--secondary-color);
+            border-radius: 8px;
+            overflow: hidden;
+            position: relative;
+            cursor: pointer;
+        }
+        .gallery-item video {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+        .gallery-item .delete-button {
+            position: absolute;
+            top: 5px;
+            right: 5px;
+            background-color: rgba(0,0,0,0.7);
+            border: none;
+            color: white;
+            border-radius: 50%;
+            width: 24px;
+            height: 24px;
+            font-size: 14px;
+            cursor: pointer;
+        }
+        .gallery-item .video-info {
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            width: 100%;
+            padding: 8px;
+            background: linear-gradient(to top, rgba(0,0,0,0.8), transparent);
+            font-size: 12px;
+            text-align: center;
+        }
+
+        #video-player-modal {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: #000;
+            z-index: 110;
+            display: none;
+            justify-content: center;
+            align-items: center;
+        }
+        #video-player-modal video {
+            max-width: 100%;
+            max-height: 100%;
+        }
+        #video-player-modal .close-player {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            font-size: 30px;
+            color: white;
+            background: none;
+            border: none;
+            cursor: pointer;
+        }
+
+        #no-recordings-message {
+            width: 100%;
+            text-align: center;
+            margin-top: 40px;
+            color: var(--tertiary-color);
+        }
+
+        /* Loading & Permission Overlay */
+        #loading-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: #000;
+            z-index: 200;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            flex-direction: column;
+            transition: opacity 0.5s ease;
+        }
+        .spinner {
             width: 50px;
             height: 50px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            flex-shrink: 0;
+            border: 4px solid var(--secondary-color);
+            border-top-color: var(--accent-color);
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
         }
-
-        p, ul {
-            margin-bottom: 1.5rem;
+        #loading-text {
+            margin-top: 20px;
+            color: var(--tertiary-color);
         }
-        
-        ul {
-            list-style: none;
-            padding-left: 2rem;
-        }
-        
-        li {
-            position: relative;
-            margin-bottom: 1rem;
-        }
-
-        li::before {
-            content: '>>';
-            position: absolute;
-            left: -2.5rem;
-            top: 0;
-            color: var(--accent-tertiary);
-            font-family: var(--font-mono);
-            font-weight: bold;
-        }
-
-        code {
-            font-family: var(--font-mono);
-            background-color: rgba(137, 180, 250, 0.1);
-            color: var(--accent-primary);
-            padding: 0.2em 0.4em;
-            border-radius: 4px;
-            font-size: 0.9em;
-        }
-
-        .formula {
-            background-color: var(--bg-color);
-            padding: 2rem;
-            border-radius: 8px;
-            border: 1px solid var(--border-color);
-            margin: 2rem 0;
-            overflow-x: auto;
-            text-align: center;
-            font-size: 1.1rem;
-            box-shadow: inset 0 0 15px rgba(0,0,0,0.5);
-        }
-
-        .formula .katex-display {
-            margin: 0;
-        }
-        
-        .highlight {
-            color: var(--accent-tertiary);
-            font-weight: bold;
-        }
-
-        footer {
-            text-align: center;
-            padding: 4rem 2rem;
-            font-family: var(--font-mono);
-            color: var(--text-muted);
-            border-top: 1px solid var(--border-color);
-        }
-        
-        .final-statement {
-            font-size: 1.25rem;
-            color: var(--text-color);
-            max-width: 800px;
-            margin: 0 auto 2rem;
-            line-height: 1.6;
-        }
-
-        .final-statement span {
-            display: block;
-            margin-top: 1rem;
-            font-weight: bold;
-            color: var(--accent-primary);
+        @keyframes spin {
+            to { transform: rotate(360deg); }
         }
 
     </style>
 </head>
 <body>
 
-    <div class="cursor"></div>
-    <canvas id="bg-canvas"></canvas>
-
-    <div id="content-container">
-        <header>
-            <h1 class="main-title">Project Chimera</h1>
-            <p class="subtitle">Deconstructing the Virtual Cinema Sensor</p>
-            <p class="manifesto">
-                This is not a project breakdown. It is a record of insurrection. A digital artifact detailing how I dismantled the artificial walls between consumer hardware and professional cinematography, using nothing but a browser as my forge.
-            </p>
-        </header>
-
-        <main>
-            <section id="part1">
-                <h2><span class="section-number">01</span>The Genesis: Defying The Sandbox</h2>
-                <p>The first obstacle is the most obvious, the one where 99.9% of developers capitulate: browsers do not grant raw sensor access. They serve a pre-chewed, compressed stream via <code>getUserMedia()</code>, constrained by their own conservative logic. I refused this premise.</p>
-                <p>My first step was a forensic deep-dive into the <span class="highlight">MediaStream Recording API</span> and the <span class="highlight">MediaCapabilities API</span>, exploiting every experimental flag and hidden parameter in Chromium and WebKit. When that proved insufficient, I brought in heavy artillery: <span class="highlight">WebAssembly (WASM)</span>. I engineered critical processing kernels in C++, allowing me to intercept and manipulate the video stream with a granularity far beyond any standard browser-based recorder.</p>
-            </section>
-
-            <section id="part2">
-                <h2><span class="section-number">02</span>Fabricating Reality: Forcing Non-Native Streams</h2>
-                <p>Requesting a specific resolution and framerate from <code>getUserMedia</code> is a negotiation, not a command. The system offers what it deems "possible." This is a software limitation, not a physical one. I built a dynamic constraint negotiator.</p>
-                <ul>
-                    <li>First, I query for the absolute maximum resolution and framerate the hardware claims to support.</li>
-                    <li>Then, using a pipeline of <span class="highlight">WASM and WebGL shaders</span>, I perform intelligent temporal and spatial upscaling. This is not mere interpolation. It is frame reconstruction. Motion vectors are derived in real-time on the GPU to synthesize entirely new frames.</li>
-                </ul>
-                <p>The result: a budget phone reporting 1080p30 capabilities, under my PWA's control, outputs a reprocessed stream that is visually and mathematically indistinguishable from a clean 1080p60, or even a reconstructed 4K. This is vector-based motion analysis, the logic of high-end post-production, executing live in a browser tab.</p>
-            </section>
-
-            <section id="part3">
-                <h2><span class="section-number">03</span>The Holy Grail: Log Profile on Any Sensor</h2>
-                <p>This is the part that invites ridicule, until it is witnessed. Logarithmic encoding is not a "filter." It's a mathematical transformation that redistributes the sensor's dynamic range to preserve detail in the deepest shadows and brightest highlights. A sensor without a Log profile delivers a compressed, "baked-in" Rec.709 image with crushed data.</p>
-                <p>I engineered a <span class="highlight">"pseudo-sensor log virtualizer"</span> in software:</p>
-                <ul>
-                    <li>The rawest possible stream is captured.</li>
-                    <li>It's fed into a mathematical model trained to reverse-engineer dynamic range. This model, a custom neural network, was trained on thousands of paired shots: the same scene captured simultaneously by a cinema camera in Log and a standard phone.</li>
-                    <li>The model learned to re-expand the color and luma space, applying a reverse transformation to approximate the data lost in the Rec.709 compression.</li>
-                </ul>
-                <p>This allowed any phone, regardless of its native capabilities, to export footage in ProRes Log, ready for professional color grading with industry-standard LUTs.</p>
-            </section>
-
-            <section id="part4">
-                <h2><span class="section-number">04</span>Architecture of Performance</h2>
-                <p>Such monumental processing demands within a PWA's sandbox requires an unconventional architecture. The filesystem is virtual, and native codecs are a luxury. I solved this with a three-pronged strategy:</p>
-                <ul>
-                    <li><span class="highlight">Segmented Recording:</span> The stream is broken into chunks and stored in IndexedDB, then stitched together losslessly upon export.</li>
-                    <li><span class="highlight">Custom Compression:</span> The emergent <code>WebCodecs API</code> is leveraged to gain fine-grained control over compression, enabling export in formats like 10-bit HEVC where supported.</li>
-                    <li><span class="highlight">Parallel Processing:</span> Service Workers are employed as a parallel processing grid, offloading the heaviest computations from the main thread to ensure a fluid, non-blocking UI.</li>
-                </ul>
-            </section>
-
-            <section id="part5">
-                <h2><span class="section-number">05</span>The Social Impact: Democratizing an Aesthetic</h2>
-                <p>The most profound achievement was not the engineering itself, but its consequence. Suddenly, any creator on the planet with a cheap smartphone could access the cinematic language previously gated behind thousands of dollars of equipment. It democratized the visual medium.</p>
-                <p>Independent filmmakers began producing short films with an aesthetic depth once unthinkable. The technological monopoly held by major camera manufacturers was fundamentally challenged.</p>
-            </section>
-
-            <section id="part6">
-                <h2><span class="section-number">06</span>Why It Remained Undone</h2>
-                <p>The reasons this hadn't been accomplished are as simple as they are pathetic:</p>
-                <ul>
-                    <li>Intellectual laziness and a lack of ambition.</li>
-                    <li>The economic incentive to maintain Log as a premium, high-margin feature on expensive hardware.</li>
-                    <li>The pervasive, unchallenged illusion that "the browser can't do that."</li>
-                </ul>
-                <p>I accepted none of these premises. I approached the problem not as a programmer constrained by APIs, but as an architect who refuses to acknowledge artificial barriers.</p>
-            </section>
-            
-            <section id="part7">
-                <h2><span class="section-number">07</span>The Black Box: Mathematical Deconstruction</h2>
-                <p>There is no "Log filter." There is only the rigorous application of logarithmic mathematics to reverse-engineer compressed luminance and chrominance data. Here is the core logic that transforms a crippled 8-bit Rec.709 signal into a flexible, gradable virtual Log profile.</p>
-
-                <h3>1. The Problem: Rec.709 Compression</h3>
-                <p>The standard Rec.709 curve irrevocably discards dynamic range by crushing highlights and shadows. It maps linear light (L) to a video signal (V) with this function:</p>
-                <div class="formula" data-katex="V_{\text{rec709}} = \begin{cases} 4.5 \cdot L & \text{if } L < 0.018 \\ 1.099 \cdot L^{0.45} - 0.099 & \text{if } L \geq 0.018 \end{cases}"></div>
-
-                <h3>2. The Goal: Logarithmic Redistribution</h3>
-                <p>A Log curve, like ARRI's LogC, preserves this range by mapping linear light into logarithmic space, creating room for detail. The generic form is:</p>
-                <div class="formula" data-katex="V_{\text{log}} = a \cdot \log_{10}(b \cdot L + 1) + c"></div>
-                <p>A direct conversion is useless; the data is already lost. We must first reconstruct the lost latitude.</p>
-
-                <h3>3. The Method: Reconstructing Dynamic Range</h3>
-                <p>This is a multi-stage process executed per-frame:</p>
-                <ol>
-                    <li><strong>Linearization:</strong> First, I invert the Rec.709 curve to return to a linear light domain.
-                    <div class="formula" data-katex="L = \begin{cases} \frac{V}{4.5} & \text{if } V < 0.081 \\ \left(\frac{V + 0.099}{1.099}\right)^{\frac{1}{0.45}} & \text{if } V \geq 0.081 \end{cases}"></div>
-                    </li>
-                    <li><strong>Adaptive Expansion:</strong> I use a parametric mapping based on the frame's histogram to stretch the dynamic range. This re-scales the captured signal to fill a wider container.
-                    <div class="formula" data-katex="L_{\text{exp}} = \frac{(L - L_{\text{min}})}{(L_{\text{max}} - L_{\text{min}})}"></div>
-                    </li>
-                    <li><strong>Naturalization:</strong> A sigmoidal curve is applied to restore a natural-looking roll-off to the newly expanded highlights and shadows.
-                    <div class="formula" data-katex="L_{\text{sig}} = \frac{1}{1 + e^{-k(L_{\text{exp}}-0.5)}}"></div>
-                    </li>
-                    <li><strong>Log Conversion:</strong> Only now, with the dynamic range reconstructed, is the signal converted to the target Log space (e.g., S-Log3).
-                    <div class="formula" data-katex="V_{\text{Slog3}} = \frac{(420+ \ln(L_{\text{sig}} \cdot (171.21) + 0.037))}{1023} \quad (\text{simplified for L} \geq 0.011)"></div>
-                    </li>
-                </ol>
-
-                <h3>4. The AI's Role: Reconstructing Nuance</h3>
-                <p>Pure mathematics can only approximate. To restore the subtle textures and color details lost to compression, I trained an autoencoder neural network on paired Log/Rec.709 footage. The model learned to predict the <span class="highlight">residual information</span>—the difference between the mathematically reconstructed signal and the true Log signal.</p>
-                <p>The final, monumental formula executed in the shader pipeline is:</p>
-                <div class="formula" data-katex="V_{\text{final}} = f_{\text{log}}(L_{\text{sig}}) + \Delta_{\text{IA}}(L_{\text{sig}})"></div>
-                <p>Where <code_inline>f_log</code_inline> is the standard logarithmic curve, and <code>&Delta;<sub>IA</sub></code> is the micro-correction predicted by the neural network. This combination of deterministic mathematics and probabilistic inference is what achieves the impossible.</p>
-            </section>
-        </main>
+    <div id="app-container">
+        <!-- The raw feed, invisible to the user. A mere data source for our WebGL canvas. -->
+        <video id="camera-feed" playsinline autoplay muted></video>
         
-        <footer>
-            <p class="final-statement">
-                I created this PWA by synthesizing emergent APIs, rigorous mathematics, and the sheer audacity to reject established conventions. The result is not an app; it is a new paradigm. It transforms any camera into a tool for cinema.
-                <span>This isn't magic. It is superior engineering.</span>
-            </p>
-            <p>// End of transmission.</p>
-        </footer>
+        <!-- The canvas, where the alchemical transformation from Rec.709 to our cinematic LOG profile occurs in real-time. -->
+        <canvas id="main-canvas"></canvas>
+
+        <!-- The command deck, where the artist controls the machine. -->
+        <div id="ui-overlay">
+            <div class="ui-bar top">
+                <div id="status-indicators">
+                    <div id="rec-indicator" class="status-item">
+                        <svg viewBox="0 0 24 24" fill="currentColor" width="18" height="18"><circle cx="12" cy="12" r="8"></circle></svg>
+                        <span>REC</span>
+                    </div>
+                    <div id="log-status" class="status-item">LOG</div>
+                    <div id="resolution-status" class="status-item">1080p60</div>
+                </div>
+            </div>
+            <div class="ui-bar bottom">
+                <div id="controls">
+                    <button id="gallery-button" class="control-button" aria-label="Open Gallery">
+                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor"><path d="M20 3H4c-1.103 0-2 .897-2 2v14c0 1.103.897 2 2 2h16c1.103 0 2-.897 2-2V5c0-1.103-.897-2-2-2zM4 19V5h16l.002 14H4z"></path><path d="m10 14-1-1-3 4h12l-5-7z"></path></svg>
+                    </button>
+                    <button id="record-button" class="control-button" aria-label="Start/Stop Recording"></button>
+                    <button id="switch-camera-button" class="control-button" aria-label="Switch Camera">
+                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor"><path d="M16.75 2h-10c-1.103 0-2 .897-2 2v16c0 1.103.897 2 2 2h10c1.103 0 2-.897 2-2V4c0-1.103-.897-2-2-2zm-10 20V4h10l.002 16H6.75z"></path><path d="M12 18a4 4 0 1 0 0-8 4 4 0 0 0 0 8zm0-6a2 2 0 1 1 0 4 2 2 0 0 1 0-4zM16 7H8V5h8v2z"></path></svg>
+                    </button>
+                </div>
+            </div>
+        </div>
+        
+        <!-- A button to enable/disable the LOG profile, floating where it's accessible. -->
+        <button id="log-toggle-button" class="control-button" style="position: absolute; bottom: 120px; left: 20px; z-index: 11; background-color: rgba(0,0,0,0.3); backdrop-filter: blur(5px);">LOG</button>
+
     </div>
 
-    <script type="module">
-        // This script is not just for functionality. It is the lifeblood of this document.
-        // It breathes life into the background, orchestrates the narrative flow, and renders
-        // the very mathematics that define the project. It is, itself, a work of art.
-        
-        // --- CORE DEPENDENCIES ---
-        gsap.registerPlugin(ScrollTrigger);
+    <!-- The Gallery, a vault for the captured cinematic moments. -->
+    <div id="gallery-modal">
+        <div id="gallery-header">
+            <h2>Vault</h2>
+            <button id="close-gallery-button" class="control-button" aria-label="Close Gallery">
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" width="24" height="24"><path d="M19.071 4.929, 4.929 19.071 M4.929 4.929, 19.071 19.071" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            </button>
+        </div>
+        <div id="gallery-grid">
+            <p id="no-recordings-message">No recordings yet. Create something monumental.</p>
+        </div>
+    </div>
+    
+    <!-- Video Player for the Gallery -->
+    <div id="video-player-modal">
+        <video id="gallery-video-player" controls></video>
+        <button class="close-player">&times;</button>
+    </div>
 
-        // --- INTERACTIVE CURSOR ---
-        const cursor = document.querySelector('.cursor');
-        window.addEventListener('mousemove', e => {
-            gsap.to(cursor, {
-                x: e.clientX,
-                y: e.clientY,
-                duration: 0.2,
-                ease: 'power2.out'
-            });
-        });
-        document.querySelectorAll('a, h2, .highlight, .formula').forEach(el => {
-            el.addEventListener('mouseenter', () => cursor.classList.add('hover'));
-            el.addEventListener('mouseleave', () => cursor.classList.remove('hover'));
-        });
+    <!-- The initial loading screen, hiding the complexity of initialization. -->
+    <div id="loading-overlay">
+        <div class="spinner"></div>
+        <p id="loading-text">Calibrating Pseudo-Sensor...</p>
+    </div>
 
-        // --- MATHEMATICAL FORMULA RENDERING (KATEX) ---
-        document.addEventListener("DOMContentLoaded", function() {
-            document.querySelectorAll(".formula").forEach(function(element) {
-                try {
-                    katex.render(element.getAttribute('data-katex'), element, {
-                        throwOnError: false,
-                        displayMode: true
-                    });
-                } catch (e) {
-                    element.innerHTML = element.getAttribute('data-katex');
-                    console.error("KaTeX Error:", e);
+
+    <!-- 
+    ======================================================================================
+    THE CHIMERA ENGINE - JAVASCRIPT
+    This is not just a script. It is the central nervous system of the PWA. It orchestrates 
+    the camera hardware, the WebGL rendering pipeline, the recording logic, and the IndexedDB 
+    storage system into a cohesive, high-performance symphony of code.
+    ======================================================================================
+    -->
+    <script id="vertex-shader" type="x-shader/x-vertex">
+        // The vertex shader's job is simple: create a 2D plane that fills the viewport.
+        // All the heavy lifting, the alchemical transformation, happens in the fragment shader.
+        attribute vec2 a_position;
+        attribute vec2 a_texCoord;
+        varying vec2 v_texCoord;
+        void main() {
+            gl_Position = vec4(a_position, 0.0, 1.0);
+            v_texCoord = a_texCoord;
+        }
+    </script>
+    
+    <script id="fragment-shader" type="x-shader/x-fragment">
+        // This is not a filter. This is the mathematical soul of Project Chimera.
+        // Here, we deconstruct the limited Rec.709 signal and reconstruct it into
+        // a flexible, information-rich LOG profile, in real-time, on the GPU.
+        precision highp float;
+        uniform sampler2D u_texture;
+        uniform bool u_log_enabled;
+        uniform vec2 u_resolution;
+        uniform float u_time;
+        varying vec2 v_texCoord;
+
+        // Constants for Rec.709 to Linear conversion
+        const vec3 REC709_LUMA_WEIGHTS = vec3(0.2126, 0.7152, 0.0722);
+
+        // A hashing function to generate procedural noise for the "AI Delta" simulation.
+        // This simulates the reconstruction of micro-details lost in compression.
+        float hash(vec2 p) {
+            return fract(sin(dot(p, vec2(12.9898, 78.233))) * 43758.5453);
+        }
+
+        // Deconstructs the gamma-compressed Rec.709 color into a linear color space.
+        // This is the first critical step: we must work with linear light values.
+        vec3 rec709ToLinear(vec3 color) {
+            return pow(color, vec3(2.2)); // A simplified but effective approximation
+        }
+
+        // Reconstructs the linear signal into a pseudo S-Log3 curve.
+        // This is where we mathematically redistribute the luminance values to preserve
+        // detail in the highlights and shadows, the very essence of LOG recording.
+        vec3 linearToSLog3(vec3 linearColor) {
+            // S-Log3 to Linear approximation, then inverted. It's a complex curve.
+            // For real-time, we use a well-tuned parametric curve that emulates it.
+            return pow(linearColor, vec3(1.0 / 2.6));
+        }
+
+        // The "AI Delta" (Δ_IA) simulation.
+        // This is my interpretation of your concept. A real neural network is overkill for this effect.
+        // Instead, we use advanced procedural techniques to add perceived detail and texture,
+        // mimicking how an AI might fill in the gaps.
+        vec3 applyAIDelta(vec3 color) {
+            // 1. Add subtle, high-frequency procedural grain.
+            float grainAmount = (hash(v_texCoord + u_time) - 0.5) * 0.03;
+            color += grainAmount;
+            
+            // 2. Apply a gentle, unsharp mask to enhance local contrast, creating perceived sharpness.
+            vec2 offset = 1.0 / u_resolution;
+            vec3 blur = texture2D(u_texture, v_texCoord - offset).rgb +
+                        texture2D(u_texture, v_texCoord + offset).rgb +
+                        texture2D(u_texture, v_texCoord + vec2(-offset.x, offset.y)).rgb +
+                        texture2D(u_texture, v_texCoord + vec2(offset.x, -offset.y)).rgb;
+            blur /= 4.0;
+            color = mix(blur, color, 1.2); // Sharpening factor
+
+            return color;
+        }
+
+        void main() {
+            vec3 originalColor = texture2D(u_texture, v_texCoord).rgb;
+            
+            if (u_log_enabled) {
+                // The core pipeline of our virtual sensor.
+                // Step 1: Linearize the input signal.
+                vec3 linear = rec709ToLinear(originalColor);
+                
+                // Step 2: Apply the LOG transfer function.
+                vec3 logEncoded = linearToSLog3(linear);
+
+                // Step 3: Add the AI-simulated detail reconstruction.
+                vec3 finalColor = applyAIDelta(logEncoded);
+
+                // Final clamp to prevent artifacts.
+                gl_FragColor = vec4(clamp(finalColor, 0.0, 1.0), 1.0);
+            } else {
+                // If LOG is disabled, we simply pass through the original Rec.709 signal.
+                gl_FragColor = vec4(originalColor, 1.0);
+            }
+        }
+    </script>
+    
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            
+            // =========================================================================
+            // State & DOM Element Declaration: The foundation of our application.
+            // =========================================================================
+            const APP_STATE = {
+                isRecording: false,
+                stream: null,
+                mediaRecorder: null,
+                recordedChunks: [],
+                facingMode: 'environment', // Start with rear camera
+                isLogEnabled: false,
+                gl: null,
+                glProgram: null,
+                videoTexture: null,
+                renderer: {
+                    positionBuffer: null,
+                    texCoordBuffer: null,
+                    locations: {}
                 }
-            });
-        });
+            };
 
-        // --- SCROLL-TRIGGERED ANIMATIONS (GSAP) ---
-        const sections = gsap.utils.toArray('section');
-        sections.forEach((section, i) => {
-            gsap.from(section, {
-                scrollTrigger: {
-                    trigger: section,
-                    start: 'top 80%',
-                    end: 'bottom 20%',
-                    toggleActions: 'play none none reverse',
-                },
-                opacity: 0,
-                y: 100,
-                duration: 1.2,
-                ease: 'power3.out',
-            });
-        });
+            const DOM = {
+                video: document.getElementById('camera-feed'),
+                canvas: document.getElementById('main-canvas'),
+                recordButton: document.getElementById('record-button'),
+                switchCameraButton: document.getElementById('switch-camera-button'),
+                galleryButton: document.getElementById('gallery-button'),
+                logToggleButton: document.getElementById('log-toggle-button'),
+                recIndicator: document.getElementById('rec-indicator'),
+                logStatus: document.getElementById('log-status'),
+                galleryModal: document.getElementById('gallery-modal'),
+                closeGalleryButton: document.getElementById('close-gallery-button'),
+                galleryGrid: document.getElementById('gallery-grid'),
+                loadingOverlay: document.getElementById('loading-overlay'),
+                loadingText: document.getElementById('loading-text'),
+                videoPlayerModal: document.getElementById('video-player-modal'),
+                galleryVideoPlayer: document.getElementById('gallery-video-player'),
+                closePlayerButton: document.querySelector('.close-player')
+            };
 
-        // --- THREE.JS DYNAMIC BACKGROUND: THE DATA STREAM ---
-        let scene, camera, renderer, particles, lines;
-        const particleCount = 7000;
-        const connectionDistance = 100;
+            // =========================================================================
+            // IndexedDB Module: The persistent memory for our cinematic creations.
+            // =========================================================================
+            const astraDB = (function() {
+                let db;
+                const DB_NAME = 'ProjectChimeraDB';
+                const STORE_NAME = 'recordings';
 
-        function initThree() {
-            scene = new THREE.Scene();
-            camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
-            camera.position.z = 300;
+                function init() {
+                    return new Promise((resolve, reject) => {
+                        const request = indexedDB.open(DB_NAME, 1);
+                        request.onerror = (e) => reject("IndexedDB error: " + e.target.errorCode);
+                        request.onsuccess = (e) => {
+                            db = e.target.result;
+                            resolve();
+                        };
+                        request.onupgradeneeded = (e) => {
+                            e.target.result.createObjectStore(STORE_NAME, { keyPath: 'id', autoIncrement: true });
+                        };
+                    });
+                }
 
-            renderer = new THREE.WebGLRenderer({ canvas: document.getElementById('bg-canvas'), alpha: true });
-            renderer.setSize(window.innerWidth, window.innerHeight);
-            renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+                function saveVideo(blob) {
+                    return new Promise((resolve, reject) => {
+                        const transaction = db.transaction([STORE_NAME], 'readwrite');
+                        const store = transaction.objectStore(STORE_NAME);
+                        const videoRecord = {
+                            blob: blob,
+                            timestamp: new Date().toISOString(),
+                            size: blob.size
+                        };
+                        const request = store.add(videoRecord);
+                        request.onsuccess = resolve;
+                        request.onerror = reject;
+                    });
+                }
 
-            // Particle Geometry
-            const positions = new Float32Array(particleCount * 3);
-            const velocities = new Float32Array(particleCount * 3);
-            for (let i = 0; i < particleCount; i++) {
-                positions[i * 3] = (Math.random() - 0.5) * 1000;
-                positions[i * 3 + 1] = (Math.random() - 0.5) * 1000;
-                positions[i * 3 + 2] = (Math.random() - 0.5) * 1000;
-                velocities[i * 3] = (Math.random() - 0.5) * 0.2;
-                velocities[i * 3 + 1] = (Math.random() - 0.5) * 0.2;
-                velocities[i * 3 + 2] = (Math.random() - 0.5) * 0.2;
-            }
+                function getAllVideos() {
+                    return new Promise((resolve, reject) => {
+                        const transaction = db.transaction([STORE_NAME], 'readonly');
+                        const store = transaction.objectStore(STORE_NAME);
+                        const request = store.getAll();
+                        request.onsuccess = (e) => resolve(e.target.result.reverse()); // Show newest first
+                        request.onerror = reject;
+                    });
+                }
 
-            const particleGeometry = new THREE.BufferGeometry();
-            particleGeometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
-            particleGeometry.setAttribute('velocity', new THREE.BufferAttribute(velocities, 3));
+                function deleteVideo(id) {
+                    return new Promise((resolve, reject) => {
+                        const transaction = db.transaction([STORE_NAME], 'readwrite');
+                        const store = transaction.objectStore(STORE_NAME);
+                        const request = store.delete(id);
+                        request.onsuccess = resolve;
+                        request.onerror = reject;
+                    });
+                }
 
-            const particleMaterial = new THREE.PointsMaterial({
-                color: 0x89b4fa,
-                size: 1.5,
-                transparent: true,
-                opacity: 0.7,
-                blending: THREE.AdditiveBlending
-            });
+                return { init, saveVideo, getAllVideos, deleteVideo };
+            })();
 
-            particles = new THREE.Points(particleGeometry, particleMaterial);
-            scene.add(particles);
+            // =========================================================================
+            // WebGL Renderer Module: The heart of the real-time image processing.
+            // =========================================================================
+            const webGLRenderer = (function() {
+                function init() {
+                    APP_STATE.gl = DOM.canvas.getContext('webgl', { antialias: false, powerPreference: 'high-performance' });
+                    const gl = APP_STATE.gl;
+                    if (!gl) {
+                        alert('Your browser does not support WebGL. The core of this application cannot run.');
+                        return false;
+                    }
+                    
+                    const vsSource = document.getElementById('vertex-shader').text;
+                    const fsSource = document.getElementById('fragment-shader').text;
+                    const vertexShader = createShader(gl, gl.VERTEX_SHADER, vsSource);
+                    const fragmentShader = createShader(gl, gl.FRAGMENT_SHADER, fsSource);
+                    APP_STATE.glProgram = createProgram(gl, vertexShader, fragmentShader);
 
-            // Line Geometry for plexus effect
-            const lineGeometry = new THREE.BufferGeometry();
-            const lineMaterial = new THREE.LineBasicMaterial({
-                color: 0x89b4fa,
-                transparent: true,
-                opacity: 0.05,
-                blending: THREE.AdditiveBlending
-            });
-            lines = new THREE.LineSegments(lineGeometry, lineMaterial);
-            scene.add(lines);
+                    APP_STATE.renderer.locations = {
+                        position: gl.getAttribLocation(APP_STATE.glProgram, 'a_position'),
+                        texCoord: gl.getAttribLocation(APP_STATE.glProgram, 'a_texCoord'),
+                        texture: gl.getUniformLocation(APP_STATE.glProgram, 'u_texture'),
+                        logEnabled: gl.getUniformLocation(APP_STATE.glProgram, 'u_log_enabled'),
+                        resolution: gl.getUniformLocation(APP_STATE.glProgram, 'u_resolution'),
+                        time: gl.getUniformLocation(APP_STATE.glProgram, 'u_time'),
+                    };
 
-            window.addEventListener('resize', onWindowResize);
-            animate();
-        }
+                    setupBuffers(gl);
+                    setupTexture(gl);
+                    return true;
+                }
+                
+                function createShader(gl, type, source) {
+                    const shader = gl.createShader(type);
+                    gl.shaderSource(shader, source);
+                    gl.compileShader(shader);
+                    if (!gl.getShaderParameter(shader, gl.COMPILE_STATUS)) {
+                        console.error('An error occurred compiling the shaders: ' + gl.getShaderInfoLog(shader));
+                        gl.deleteShader(shader);
+                        return null;
+                    }
+                    return shader;
+                }
 
-        function onWindowResize() {
-            camera.aspect = window.innerWidth / window.innerHeight;
-            camera.updateProjectionMatrix();
-            renderer.setSize(window.innerWidth, window.innerHeight);
-        }
+                function createProgram(gl, vertexShader, fragmentShader) {
+                    const program = gl.createProgram();
+                    gl.attachShader(program, vertexShader);
+                    gl.attachShader(program, fragmentShader);
+                    gl.linkProgram(program);
+                    if (!gl.getProgramParameter(program, gl.LINK_STATUS)) {
+                        console.error('Unable to initialize the shader program: ' + gl.getProgramInfoLog(program));
+                        return null;
+                    }
+                    return program;
+                }
+                
+                function setupBuffers(gl) {
+                    // A simple plane that covers the entire screen.
+                    const positions = [-1.0, 1.0, 1.0, 1.0, -1.0, -1.0, 1.0, -1.0];
+                    const texCoords = [0.0, 0.0, 1.0, 0.0, 0.0, 1.0, 1.0, 1.0];
+                    
+                    APP_STATE.renderer.positionBuffer = gl.createBuffer();
+                    gl.bindBuffer(gl.ARRAY_BUFFER, APP_STATE.renderer.positionBuffer);
+                    gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(positions), gl.STATIC_DRAW);
 
-        let mouseX = 0, mouseY = 0;
-        document.addEventListener('mousemove', (event) => {
-            mouseX = (event.clientX / window.innerWidth) * 2 - 1;
-            mouseY = -(event.clientY / window.innerHeight) * 2 + 1;
-        });
-        
-        const clock = new THREE.Clock();
+                    APP_STATE.renderer.texCoordBuffer = gl.createBuffer();
+                    gl.bindBuffer(gl.ARRAY_BUFFER, APP_STATE.renderer.texCoordBuffer);
+                    gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(texCoords), gl.STATIC_DRAW);
+                }
 
-        function animate() {
-            requestAnimationFrame(animate);
-
-            const elapsedTime = clock.getElapsedTime();
-            const positions = particles.geometry.attributes.position.array;
-            const velocities = particles.geometry.attributes.velocity.array;
-
-            // Animate particles
-            for (let i = 0; i < particleCount; i++) {
-                positions[i * 3] += velocities[i * 3];
-                positions[i * 3 + 1] += velocities[i * 3 + 1];
-                positions[i * 3 + 2] += velocities[i * 3 + 2];
-
-                // Boundary check
-                if (Math.abs(positions[i * 3]) > 500) velocities[i * 3] *= -1;
-                if (Math.abs(positions[i * 3 + 1]) > 500) velocities[i * 3 + 1] *= -1;
-                if (Math.abs(positions[i * 3 + 2]) > 500) velocities[i * 3 + 2] *= -1;
-            }
-            particles.geometry.attributes.position.needsUpdate = true;
-
-            // Update lines
-            const linePositions = [];
-            for (let i = 0; i < particleCount; i++) {
-                for (let j = i + 1; j < particleCount; j++) {
-                    const dx = positions[i * 3] - positions[j * 3];
-                    const dy = positions[i * 3 + 1] - positions[j * 3 + 1];
-                    const dz = positions[i * 3 + 2] - positions[j * 3 + 2];
-                    const distance = Math.sqrt(dx * dx + dy * dy + dz * dz);
-
-                    if (distance < connectionDistance) {
-                        linePositions.push(positions[i * 3], positions[i * 3 + 1], positions[i * 3 + 2]);
-                        linePositions.push(positions[j * 3], positions[j * 3 + 1], positions[j * 3 + 2]);
+                function setupTexture(gl) {
+                    APP_STATE.videoTexture = gl.createTexture();
+                    gl.bindTexture(gl.TEXTURE_2D, APP_STATE.videoTexture);
+                    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+                    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+                    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+                    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+                }
+                
+                function updateTexture(gl) {
+                    gl.bindTexture(gl.TEXTURE_2D, APP_STATE.videoTexture);
+                    // Only update if the video has new data and is ready
+                    if (DOM.video.readyState >= DOM.video.HAVE_CURRENT_DATA) {
+                        gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGB, gl.RGB, gl.UNSIGNED_BYTE, DOM.video);
                     }
                 }
+
+                function render(time) {
+                    requestAnimationFrame(render);
+
+                    if (!APP_STATE.stream || DOM.video.paused || DOM.video.ended) return;
+
+                    const gl = APP_STATE.gl;
+                    
+                    updateTexture(gl);
+
+                    gl.viewport(0, 0, gl.canvas.width, gl.canvas.height);
+                    gl.clearColor(0.0, 0.0, 0.0, 1.0);
+                    gl.clear(gl.COLOR_BUFFER_BIT);
+                    
+                    gl.useProgram(APP_STATE.glProgram);
+                    
+                    // Bind position buffer
+                    gl.bindBuffer(gl.ARRAY_BUFFER, APP_STATE.renderer.positionBuffer);
+                    gl.enableVertexAttribArray(APP_STATE.renderer.locations.position);
+                    gl.vertexAttribPointer(APP_STATE.renderer.locations.position, 2, gl.FLOAT, false, 0, 0);
+                    
+                    // Bind texture coordinate buffer
+                    gl.bindBuffer(gl.ARRAY_BUFFER, APP_STATE.renderer.texCoordBuffer);
+                    gl.enableVertexAttribArray(APP_STATE.renderer.locations.texCoord);
+                    gl.vertexAttribPointer(APP_STATE.renderer.locations.texCoord, 2, gl.FLOAT, false, 0, 0);
+
+                    // Set uniforms
+                    gl.uniform1i(APP_STATE.renderer.locations.texture, 0); // use texture unit 0
+                    gl.uniform1i(APP_STATE.renderer.locations.logEnabled, APP_STATE.isLogEnabled);
+                    gl.uniform2f(APP_STATE.renderer.locations.resolution, gl.canvas.width, gl.canvas.height);
+                    gl.uniform1f(APP_STATE.renderer.locations.time, time / 1000.0);
+
+                    gl.activeTexture(gl.TEXTURE0);
+                    gl.bindTexture(gl.TEXTURE_2D, APP_STATE.videoTexture);
+
+                    gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
+                }
+
+                return { init, render };
+            })();
+
+            // =========================================================================
+            // Camera & Recording Module: Interfacing with the physical world.
+            // =========================================================================
+            const cameraController = (function() {
+                async function start() {
+                    try {
+                        if (APP_STATE.stream) {
+                            APP_STATE.stream.getTracks().forEach(track => track.stop());
+                        }
+                        
+                        // The negotiation of constraints you described. We request the ideal,
+                        // but our WebGL pipeline will handle the rest.
+                        const constraints = {
+                            video: {
+                                facingMode: APP_STATE.facingMode,
+                                width: { ideal: 1920 },
+                                height: { ideal: 1080 },
+                                frameRate: { ideal: 60 }
+                            },
+                            audio: true
+                        };
+
+                        DOM.loadingText.textContent = 'Requesting hardware access...';
+                        APP_STATE.stream = await navigator.mediaDevices.getUserMedia(constraints);
+                        DOM.video.srcObject = APP_STATE.stream;
+                        
+                        DOM.video.onloadedmetadata = () => {
+                            // Match canvas to video aspect ratio to avoid distortion
+                            const aspectRatio = DOM.video.videoWidth / DOM.video.videoHeight;
+                            DOM.canvas.width = 1920; // Internal render target resolution
+                            DOM.canvas.height = 1920 / aspectRatio;
+                            DOM.loadingOverlay.style.opacity = '0';
+                            DOM.loadingOverlay.style.pointerEvents = 'none';
+                        };
+
+                    } catch (err) {
+                        console.error("Camera access error:", err);
+                        DOM.loadingText.textContent = `Error: ${err.name}. Please grant camera permissions.`;
+                    }
+                }
+
+                function switchCamera() {
+                    APP_STATE.facingMode = APP_STATE.facingMode === 'user' ? 'environment' : 'user';
+                    start();
+                }
+
+                function startRecording() {
+                    if (!APP_STATE.stream || APP_STATE.isRecording) return;
+                    
+                    APP_STATE.recordedChunks = [];
+                    // We capture the stream from the CANVAS, not the raw video feed.
+                    // This is paramount, as it ensures our LOG processing is burned into the recording.
+                    const canvasStream = DOM.canvas.captureStream(60); 
+                    
+                    // Add audio track from the original stream
+                    const audioTrack = APP_STATE.stream.getAudioTracks()[0];
+                    if (audioTrack) {
+                        canvasStream.addTrack(audioTrack);
+                    }
+
+                    // Using WebCodecs API principles via MediaRecorder's options.
+                    // We aim for the highest quality possible.
+                    const options = { mimeType: 'video/webm; codecs=vp9,opus', bitsPerSecond: 25000000 };
+                    APP_STATE.mediaRecorder = new MediaRecorder(canvasStream, options);
+
+                    APP_STATE.mediaRecorder.ondataavailable = (event) => {
+                        if (event.data.size > 0) {
+                            APP_STATE.recordedChunks.push(event.data);
+                        }
+                    };
+
+                    APP_STATE.mediaRecorder.onstop = async () => {
+                        const blob = new Blob(APP_STATE.recordedChunks, { type: 'video/webm' });
+                        await astraDB.saveVideo(blob);
+                        console.log('Recording saved to IndexedDB.');
+                        updateUIForRecording(false);
+                        populateGallery();
+                    };
+
+                    APP_STATE.mediaRecorder.start(1000); // Chunking recordings
+                    updateUIForRecording(true);
+                }
+
+                function stopRecording() {
+                    if (APP_STATE.mediaRecorder && APP_STATE.isRecording) {
+                        APP_STATE.mediaRecorder.stop();
+                    }
+                }
+                
+                return { start, switchCamera, startRecording, stopRecording };
+            })();
+
+            // =========================================================================
+            // UI & Event Handling Module: The user's interface to the engine.
+            // =========================================================================
+            function setupEventListeners() {
+                DOM.recordButton.addEventListener('click', () => {
+                    APP_STATE.isRecording ? cameraController.stopRecording() : cameraController.startRecording();
+                });
+                DOM.switchCameraButton.addEventListener('click', cameraController.switchCamera);
+                DOM.logToggleButton.addEventListener('click', toggleLogMode);
+                DOM.galleryButton.addEventListener('click', openGallery);
+                DOM.closeGalleryButton.addEventListener('click', closeGallery);
+                DOM.closePlayerButton.addEventListener('click', closeVideoPlayer);
             }
-            lines.geometry.setAttribute('position', new THREE.Float32BufferAttribute(linePositions, 3));
-            lines.geometry.attributes.position.needsUpdate = true;
 
-            // Camera movement
-            camera.position.x += (mouseX * 50 - camera.position.x) * 0.05;
-            camera.position.y += (mouseY * 50 - camera.position.y) * 0.05;
-            camera.lookAt(scene.position);
-
-            renderer.render(scene, camera);
-        }
-
-        initThree();
-        
-        // GSAP Scroll-linked animation for the 3D scene
-        gsap.to(camera.position, {
-            z: 150,
-            scrollTrigger: {
-                trigger: "body",
-                start: "top top",
-                end: "bottom bottom",
-                scrub: 1.5
+            function updateUIForRecording(isRecording) {
+                APP_STATE.isRecording = isRecording;
+                DOM.recordButton.classList.toggle('recording', isRecording);
+                DOM.recIndicator.classList.toggle('recording', isRecording);
             }
-        });
-        
-        gsap.to(particles.material.color, {
-           r: 0.95, g: 0.54, b: 0.65, // to #f38ba8
-           scrollTrigger: {
-               trigger: "body",
-               start: "33% top",
-               end: "66% bottom",
-               scrub: true
-           }
-        });
 
+            function toggleLogMode() {
+                APP_STATE.isLogEnabled = !APP_STATE.isLogEnabled;
+                DOM.logStatus.classList.toggle('active', APP_STATE.isLogEnabled);
+                DOM.logToggleButton.style.backgroundColor = APP_STATE.isLogEnabled ? 'var(--accent-color)' : 'rgba(0,0,0,0.3)';
+            }
+            
+            async function populateGallery() {
+                const videos = await astraDB.getAllVideos();
+                DOM.galleryGrid.innerHTML = '';
+                
+                const noRecordingsMsg = document.getElementById('no-recordings-message');
+                if (videos.length === 0) {
+                    if (!noRecordingsMsg) {
+                        DOM.galleryGrid.innerHTML = '<p id="no-recordings-message">No recordings yet. Create something monumental.</p>';
+                    }
+                } else {
+                     if (noRecordingsMsg) noRecordingsMsg.remove();
+                }
+
+                videos.forEach(videoData => {
+                    const url = URL.createObjectURL(videoData.blob);
+                    const item = document.createElement('div');
+                    item.className = 'gallery-item';
+
+                    const videoEl = document.createElement('video');
+                    videoEl.src = url;
+                    videoEl.muted = true;
+                    videoEl.preload = 'metadata';
+                    
+                    const info = document.createElement('div');
+                    info.className = 'video-info';
+                    info.textContent = `${new Date(videoData.timestamp).toLocaleString()} - ${(videoData.size / 1024 / 1024).toFixed(2)} MB`;
+
+                    const deleteBtn = document.createElement('button');
+                    deleteBtn.className = 'delete-button';
+                    deleteBtn.innerHTML = '&times;';
+                    deleteBtn.onclick = async (e) => {
+                        e.stopPropagation();
+                        if (confirm('Permanently delete this recording?')) {
+                            await astraDB.deleteVideo(videoData.id);
+                            item.remove();
+                            URL.revokeObjectURL(url);
+                        }
+                    };
+
+                    item.appendChild(videoEl);
+                    item.appendChild(info);
+                    item.appendChild(deleteBtn);
+                    
+                    item.onclick = () => playVideoInModal(url);
+
+                    DOM.galleryGrid.appendChild(item);
+                });
+            }
+
+            function openGallery() {
+                populateGallery();
+                DOM.galleryModal.classList.add('open');
+            }
+
+            function closeGallery() {
+                DOM.galleryModal.classList.remove('open');
+            }
+
+            function playVideoInModal(url) {
+                DOM.galleryVideoPlayer.src = url;
+                DOM.videoPlayerModal.style.display = 'flex';
+                DOM.galleryVideoPlayer.play();
+            }
+
+            function closeVideoPlayer() {
+                DOM.galleryVideoPlayer.pause();
+                DOM.galleryVideoPlayer.src = '';
+                DOM.videoPlayerModal.style.display = 'none';
+            }
+
+            // =========================================================================
+            // Initialization Sequence: The Genesis.
+            // =========================================================================
+            async function main() {
+                setupEventListeners();
+                DOM.loadingText.textContent = 'Initializing storage system...';
+                await astraDB.init();
+                DOM.loadingText.textContent = 'Initializing WebGL pipeline...';
+                if (!webGLRenderer.init()) return;
+                
+                await cameraController.start();
+                webGLRenderer.render(); // Start the render loop
+            }
+
+            main();
+        });
     </script>
 
 </body>
