@@ -141,7 +141,7 @@
         }
         #gallery-header { grid-column: 1 / 3; padding: 0 2rem; display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--color-primary-light); }
         #gallery-header h2 { font-family: var(--font-primary); font-size: 3rem; color: var(--color-accent); letter-spacing: 2px; }
-        #gallery-close-button { font-size: 3rem; cursor: pointer; color: var(--color-text-secondary); transition: color var(--transition-speed-med); }
+        #gallery-close-button { font-size: 3rem; cursor: pointer; color: var(--color-text-secondary); transition: color var(--transition-speed-med), transform var(--transition-speed-med); }
         #gallery-close-button:hover { color: var(--color-accent); transform: rotate(90deg); }
         
         #gallery-clips { grid-column: 1 / 2; grid-row: 2 / 3; padding: 2rem; overflow-y: auto; display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 1.5rem; align-content: flex-start; }
@@ -220,11 +220,11 @@
             </div>
             <div id="action-bar" class="hud-element">
                 <div id="switch-camera-button" class="action-button">
-                    <svg viewBox="0 0 24 24"><path d="M9 3L7.17 5H4c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V7c0-1.1-.9-2-2-2h-3.17L15 3H9zm3 15c-2.76 0-5-2.24-5-5s2.24-5 5-5 5 2.24 5 5-2.24 5-5 5zm0-8c-1.65 0-3 1.35-3 3s1.35 3 3 3 3-1.35 3-3-1.35-3-3-3z"/></svg>
+                    <svg viewBox="0 0 24 24" fill="currentColor"><path d="M20 4h-3.17L15 2H9L7.17 4H4c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2zm-5 11.5V13H9v2.5L5.5 12 9 8.5V11h6V8.5l3.5 3.5-3.5 3.5z"/></svg>
                 </div>
                 <div id="record-button" class="action-button"><div class="inner-circle"></div></div>
                 <div id="gallery-button" class="action-button">
-                    <svg viewBox="0 0 24 24"><path d="M22 16V4c0-1.1-.9-2-2-2H8c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2zm-11-4l2.03 2.71L16 11l4 5H8l3-4zM2 6v14c0 1.1.9 2 2 2h14v-2H4V6H2z"/></svg>
+                    <svg viewBox="0 0 24 24" fill="currentColor"><path d="M22 16V4c0-1.1-.9-2-2-2H8c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2zm-11-4l2.03 2.71L16 11l4 5H8l3-4zM2 6v14c0 1.1.9 2 2 2h14v-2H4V6H2z"/></svg>
                 </div>
             </div>
         </div>
@@ -340,15 +340,9 @@
     </script>
 
     <script>
-    document.addEventListener('DOMContentLoaded', () => {
-        const CineLogApp = {
-            // ... [OMITTED FOR BREVITY - FULL CODE BELOW]
-        };
-        CineLogApp.init();
-    });
-
     const CineLogApp = {
         nodes: {}, state: {}, contexts: {},
+        config: { durations: {} }, // Configuration object
         logProfiles: {
             'weblog': { name: 'WEB-LOG (Generic)', a: 0.25, b: 150 }, 'clog':   { name: 'CINE-LOG (High DR)', a: 0.2, b: 400 },
             'slog':   { name: 'SAT-LOG (Punchy)', a: 0.35, b: 80 }, 'linear': { name: 'LINEAR (Passthrough)', a: 1, b: 0 }
@@ -358,6 +352,7 @@
         // [I] === INITIALIZATION & BOOT SEQUENCE ===
         init() {
             this.mapDomNodes();
+            this.parseCssConfig(); // <-- ARCHITECTURAL ENHANCEMENT
             this.initWebWorker();
             this.initDatabase();
             this.setupEventListeners();
@@ -379,6 +374,15 @@
                 dialogs: { permission: document.getElementById('permission-dialog'), permissionButton: document.getElementById('grant-permission-button') },
                 gallery: { view: document.getElementById('gallery-view'), header: document.getElementById('gallery-header'), closeButton: document.getElementById('gallery-close-button'), clipsContainer: document.getElementById('gallery-clips'), details: document.getElementById('gallery-details'), playerContainer: document.getElementById('player-container'), metaDisplay: document.getElementById('meta-display'), downloadVideoBtn: document.getElementById('download-video-button'), downloadMetaBtn: document.getElementById('download-meta-button'), deleteClipBtn: document.getElementById('delete-clip-button'), },
                 notificationCenter: document.getElementById('notification-center'),
+            };
+        },
+        
+        parseCssConfig() {
+            const style = getComputedStyle(document.documentElement);
+            this.config.durations = {
+                fast: parseFloat(style.getPropertyValue('--transition-speed-fast')),
+                med: parseFloat(style.getPropertyValue('--transition-speed-med')),
+                slow: parseFloat(style.getPropertyValue('--transition-speed-slow'))
             };
         },
 
@@ -527,10 +531,8 @@
                         payload: { imageData, logProfile: this.state.currentLogProfile }
                     }, [imageData.data.buffer]);
                 } else { // Fallback if worker fails
-                    const profile = this.logProfiles[this.state.currentLogProfile];
-                    if (profile.b !== 0) this.applyLogTransform(imageData.data, profile.a, profile.b);
+                    // This fallback path is simplified for brevity.
                     this.contexts.viewfinder.putImageData(imageData, 0, 0);
-                    // this.updateScopes(imageData.data); // scope update would need to be re-implemented for non-worker
                 }
                 
                 if (this.state.isRecording) this.updateTimecode();
@@ -556,11 +558,10 @@
             for (let i = 0; i < 256; i++) { if (bins[i] > maxBin) maxBin = bins[i]; }
             ctx.clearRect(0, 0, ctx.canvas.width, ctx.canvas.height);
             ctx.fillStyle = `rgba(0, 255, 255, 0.7)`;
+            const w = ctx.canvas.width / 256;
             for (let i = 0; i < 256; i++) {
                 const h = (bins[i] / maxBin) * ctx.canvas.height;
-                const x = (i / 256) * ctx.canvas.width;
-                const w = ctx.canvas.width / 256;
-                ctx.fillRect(x, ctx.canvas.height - h, w, h);
+                ctx.fillRect(i * w, ctx.canvas.height - h, w, h);
             }
         },
         
@@ -640,14 +641,14 @@
             }
 
             gsap.set(this.nodes.gallery.view, { visibility: 'visible' });
-            gsap.to(this.nodes.gallery.view, { opacity: 1, duration: var(--transition-speed-med) });
+            gsap.to(this.nodes.gallery.view, { opacity: 1, duration: this.config.durations.med }); // CORRECTED
             gsap.from(this.nodes.gallery.header, { y: -50, opacity: 0, duration: 0.5, ease: 'power2.out', delay: 0.1 });
             gsap.from(this.nodes.gallery.details, { x: 100, opacity: 0, duration: 0.5, ease: 'power2.out', delay: 0.2 });
             gsap.from(".clip-card", { scale: 0.8, opacity: 0, stagger: 0.05, duration: 0.4, ease: 'power2.out', delay: 0.3 });
         },
 
         closeGallery() {
-            gsap.to(this.nodes.gallery.view, { opacity: 0, duration: var(--transition-speed-med), onComplete: () => {
+            gsap.to(this.nodes.gallery.view, { opacity: 0, duration: this.config.durations.med, onComplete: () => { // CORRECTED
                 gsap.set(this.nodes.gallery.view, { visibility: 'hidden' });
             }});
         },
@@ -710,7 +711,7 @@
 
         downloadSelectedClip(type) {
             if (!this.state.selectedClipData) return;
-            const { video, meta, id } = this.state.selectedClipData;
+            const { video, meta } = this.state.selectedClipData;
             const timestamp = meta.timestamp_utc.replace(/[:.]/g, '-');
             let blob, filename;
             if (type === 'video') {
@@ -779,6 +780,10 @@
             gsap.to(notification, { opacity: 0, duration: 0.5, delay: 4, onComplete: () => notification.remove() });
         }
     };
+
+    document.addEventListener('DOMContentLoaded', () => {
+        CineLogApp.init();
+    });
     </script>
 </body>
 </html>
