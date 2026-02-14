@@ -1,0 +1,15 @@
+{
+  "name": "portable-autonomous-agent",
+  "version": "1.0.0",
+  "description": "Agente portátil autônomo com execução controlada de tarefas, memória temporária e voz offline opcional.",
+  "type": "module",
+  "main": "src/main.js",
+  "scripts": {
+    "start": "node src/main.js",
+    "test": "node --test"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "license": "MIT"
+}
